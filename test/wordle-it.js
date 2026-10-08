@@ -172,7 +172,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
       return t
   }
   var k = document.createElement("template");
-  k.innerHTML = "\n<style>\n  :host {\n    display: inline-block;\n  }\n  .tile {\n    width: 100%;\n    display: inline-flex;\n    justify-content: center;\n    align-items: center;\n    font-size: 2rem;\n    line-height: 2rem;\n    font-weight: bold;\n    vertical-align: middle;\n    box-sizing: border-box;\n    color: var(--tile-text-color);\n    text-transform: uppercase;\n    user-select: none;\n  }\n  .tile::before {\n    content: '';\n    display: inline-block;\n    padding-bottom: 100%;\n  }\n\n  .tile[data-state='empty'] {\n    border: 2px solid var(--color-tone-4);\n  }\n  .tile[data-state='tbd'] {\n    background-color: var(--color-tone-7);\n    border: 2px solid var(--color-tone-3);\n    color: var(--color-tone-1);\n  }\n  .tile[data-state='correct'] {\n    background-color: var(--color-correct);\n  }\n  .tile[data-state='present'] {\n    background-color: var(--color-present);\n  }\n  .tile[data-state='absent'] {\n    background-color: var(--color-absent);\n  }\n\n  .tile[data-animation='pop'] {\n    animation-name: PopIn;\n    animation-duration: 100ms;\n  }\n\n  @keyframes PopIn {\n    from {\n      transform: scale(0.8);\n      opacity: 0;\n    }\n\n    40% {\n      transform: scale(1.1);\n      opacity: 1;\n    }\n  }\n  .tile[data-animation='flip-in'] {\n    animation-name: FlipIn;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipIn {\n    0% {\n      transform: rotateX(0);\n    }\n    100% {\n      transform: rotateX(-90deg);\n    }\n  }\n  .tile[data-animation='flip-out'] {\n    animation-name: FlipOut;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipOut {\n    0% {\n      transform: rotateX(-90deg);\n    }\n    100% {\n      transform: rotateX(0);\n    }\n  }\n</style>\n<div class=\"tile\" data-state=\"empty\" data-animation=\"idle\"></div>\n";
+  k.innerHTML = "\n<style>\n  :host {\n    display: inline-block;\n  }\n  .tile {\n    width: 100%;\n    display: inline-flex;\n    justify-content: center;\n    align-items: center;\n    font-size: 2rem;\n    line-height: 2rem;\n    font-weight: bold;\n    vertical-align: middle;\n    box-sizing: border-box;\n    color: var(--tile-text-color);\n    text-transform: uppercase;\n    user-select: none;\n  }\n  .tile::before {\n    content: '';\n    display: inline-block;\n    padding-bottom: 100%;\n  }\n\n  .tile[data-state='empty'] {\n    border: 2px solid var(--color-tone-4);\n  }\n  .tile[data-state='tbd'] {\n    background-color: var(--color-tone-7);\n    border: 2px solid var(--color-tone-3);\n    color: var(--color-tone-1);\n  }\n  .tile[data-state='correct'] {\n    background-color: var(--color-correct);\n  }\n  .tile[data-state='present'] {\n    background-color: var(--color-present);\n  }\n  .tile[data-state='absent'] {\n    background-color: var(--color-absent);\n  }\n  :host([selected]) .tile {\n    border-color: var(--color-correct);\n    box-shadow: 0 0 0 2px var(--color-correct);\n  }\n\n  .tile[data-animation='pop'] {\n    animation-name: PopIn;\n    animation-duration: 100ms;\n  }\n\n  @keyframes PopIn {\n    from {\n      transform: scale(0.8);\n      opacity: 0;\n    }\n\n    40% {\n      transform: scale(1.1);\n      opacity: 1;\n    }\n  }\n  .tile[data-animation='flip-in'] {\n    animation-name: FlipIn;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipIn {\n    0% {\n      transform: rotateX(0);\n    }\n    100% {\n      transform: rotateX(-90deg);\n    }\n  }\n  .tile[data-animation='flip-out'] {\n    animation-name: FlipOut;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipOut {\n    0% {\n      transform: rotateX(-90deg);\n    }\n    100% {\n      transform: rotateX(0);\n    }\n  }\n</style>\n<div class=\"tile\" data-state=\"empty\" data-animation=\"idle\"></div>\n";
   var v = function(e) {
       n(t, e);
       var a = h(t);
@@ -266,7 +266,15 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       (t && s.setAttribute("letter", t), e._evaluation[a]) && (s.setAttribute("evaluation", e._evaluation[a]), setTimeout((function() {
                           s.setAttribute("reveal", "")
                       }), 100 * a));
-                      a === e._length - 1 && (s.last = !0), e.$row.appendChild(s)
+                      a === e._length - 1 && (s.last = !0), s.addEventListener("click", (function() {
+                          e.dispatchEvent(new CustomEvent("game-tile-tap", {
+                              bubbles: !0,
+                              composed: !0,
+                              detail: {
+                                  index: a
+                              }
+                          }))
+                      })), e.$row.appendChild(s)
                   }, s = 0; s < this._length; s++) a(s);
               this.$tiles = this.shadowRoot.querySelectorAll("game-tile"), this.addEventListener("animationend", (function(a) {
                   "Shake" === a.animationName && e.removeAttribute("invalid")
@@ -281,6 +289,9 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       break;
                   case "length":
                       this._length = parseInt(s, 10);
+                      break;
+                  case "selected":
+                      this._selected = null === s ? -1 : parseInt(s, 10);
                       break;
                   case "win":
                       if (null === s) {
@@ -301,13 +312,13 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               var e = this;
               this.$row && this.$tiles.forEach((function(a, s) {
                   var t = e._letters[s];
-                  t ? a.setAttribute("letter", t) : a.removeAttribute("letter")
+                  t ? a.setAttribute("letter", t) : a.removeAttribute("letter"), s === e._selected ? a.setAttribute("selected", "") : a.removeAttribute("selected")
               }))
           }
       }], [{
           key: "observedAttributes",
           get: function() {
-              return ["letters", "length", "invalid", "win"]
+              return ["letters", "length", "invalid", "win", "selected"]
           }
       }]), t
   }(c(HTMLElement));
@@ -1143,13 +1154,26 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   }
               }
           }, {
+              key: "selectTile",
+              value: function(e) {
+                  this.selectedTile = e;
+                  var a = this.$board.querySelectorAll("game-row")[this.rowIndex];
+                  a && (null == e ? a.removeAttribute("selected") : a.setAttribute("selected", e))
+              }
+          }, {
               key: "addLetter",
               value: function(e) {
+                  if (this.gameStatus === Qa && this.canInput && null != this.selectedTile) {
+                      var a = this.boardState[this.rowIndex],
+                          s = this.$board.querySelectorAll("game-row")[this.rowIndex];
+                      return this.boardState[this.rowIndex] = a.slice(0, this.selectedTile) + e + a.slice(this.selectedTile + 1), s.setAttribute("letters", this.boardState[this.rowIndex]), s.removeAttribute("invalid"), void this.selectTile(null)
+                  }
                   this.gameStatus === Qa && (this.canInput && (this.tileIndex >= 5 || (this.boardState[this.rowIndex] += e, this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex]), this.tileIndex += 1)))
               }
           }, {
               key: "removeLetter",
               value: function() {
+                  if (null != this.selectedTile) return void this.selectTile(null);
                   if (this.gameStatus === Qa && this.canInput && !(this.tileIndex <= 0)) {
                       this.boardState[this.rowIndex] = this.boardState[this.rowIndex].slice(0, this.boardState[this.rowIndex].length - 1);
                       var e = this.$board.querySelectorAll("game-row")[this.rowIndex];
@@ -1160,7 +1184,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               key: "submitGuess",
               value: function() {
                   if (this.gameStatus === Qa && this.canInput) {
-                      if (5 !== this.tileIndex) return this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("invalid", ""), void this.addToast("Non abbastanza lettere");
+                      if (this.selectTile(null), 5 !== this.tileIndex) return this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("invalid", ""), void this.addToast("Non abbastanza lettere");
                       this.evaluateRow()
                   }
               }
@@ -1206,6 +1230,9 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   this.$game.addEventListener("game-key-press", (function(a) {
                       var s = a.detail.key;
                       "←" === s || "Backspace" === s ? e.removeLetter() : "↵" === s || "Enter" === s ? e.submitGuess() : Ga.includes(s.toLowerCase()) && e.addLetter(s.toLowerCase())
+                  })), this.$game.addEventListener("game-tile-tap", (function(a) {
+                      var s = a.detail.index;
+                      e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && e.selectTile(s < e.tileIndex && e.selectedTile !== s ? s : null)
                   })), this.$game.addEventListener("game-last-tile-revealed-in-row", (function(a) {
                       e.$keyboard.letterEvaluations = e.letterEvaluations, e.rowIndex < 6 && (e.canInput = !0);
                       var s = e.$board.querySelectorAll("game-row")[e.rowIndex - 1];
