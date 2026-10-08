@@ -1166,7 +1166,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   if (this.gameStatus === Qa && this.canInput && null != this.selectedTile) {
                       var a = this.boardState[this.rowIndex],
                           s = this.$board.querySelectorAll("game-row")[this.rowIndex];
-                      return this.boardState[this.rowIndex] = a.slice(0, this.selectedTile) + e + a.slice(this.selectedTile + 1), s.setAttribute("letters", this.boardState[this.rowIndex]), s.removeAttribute("invalid"), void this.selectTile(null)
+                      return this.boardState[this.rowIndex] = a.slice(0, this.selectedTile) + e + a.slice(this.selectedTile + 1), s.setAttribute("letters", this.boardState[this.rowIndex]), s.removeAttribute("invalid"), void this.selectTile(this.selectedTile + 1 < this.tileIndex ? this.selectedTile + 1 : null)
                   }
                   this.gameStatus === Qa && (this.canInput && (this.tileIndex >= 5 || (this.boardState[this.rowIndex] += e, this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex]), this.tileIndex += 1)))
               }
