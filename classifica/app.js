@@ -145,6 +145,7 @@ async function renderLogin(sentTo) {
       <div class="card center" style="margin-top:16px">
         <p><strong>Controlla la posta</strong></p>
         <p>Abbiamo inviato un link di accesso a <strong>${esc(sentTo)}</strong>. Aprilo da questo dispositivo per entrare.</p>
+        <p class="muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
         <button class="link" data-action="login-again">Usa un'altra email</button>
       </div>`;
     return;
