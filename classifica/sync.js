@@ -99,8 +99,10 @@ async function restoreToday(db) {
   if (!state?.solution) return;
   const playedHere = state.lastPlayedTs && db.dayNumber(new Date(state.lastPlayedTs)) === today;
   if (playedHere && ["WIN", "FAIL"].includes(state.gameStatus)) return;
-  const { data: r, error } = await db.sb.from("results").select("guesses, won, play_ms").eq("user_id", session.user.id).eq("day", today).maybeSingle();
-  if (error || !r) return;
+  // The words are stored encrypted: my_result gives back only one's own, in clear.
+  const { data, error } = await db.sb.rpc("my_result", { p_day: today });
+  const r = data?.[0];
+  if (error || !r?.guesses?.length) return;
   if (r.won && r.guesses[r.guesses.length - 1] !== state.solution) return; // not today's word: leave this device alone
   const mark = `parle-restored-${today}`;
   try {
