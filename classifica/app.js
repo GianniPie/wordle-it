@@ -186,7 +186,7 @@ function navigate(url, replace = false) {
   state.avatarEdit = null;
   history[replace ? "replaceState" : "pushState"](null, "", url);
   closeMenu();
-  window.scrollTo(0, 0);
+  document.querySelector("main")?.scrollTo(0, 0); // the content scrolls inside main, not the page
   route();
 }
 
