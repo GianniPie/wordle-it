@@ -562,7 +562,7 @@ async function renderStats() {
         ${number(time(stats.timeToday), "Tempo")}
       </div>
     </section>
-    <section class="module">
+    <section class="module dist-module">
       <div class="module-head"><h2>Distribuzione dei tentativi</h2></div>
       <div class="dist">${bars}</div>
     </section>
