@@ -818,3 +818,5 @@ a.button.full { width: 100%; justify-content: center; }
 .stats-page .dist .row { margin: 1px 0; font-size: 12px; }
 .stats-page .dist .bar { padding: 0 6px; line-height: 17px; }
 .stats-page p.small { margin: 6px 0 0; }
+/* The line above Oggi runs from edge to edge of the card */
+.stats-page .stats-summary h2.today-title { margin-left: -14px; margin-right: -14px; }
