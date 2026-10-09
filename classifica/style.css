@@ -794,3 +794,9 @@ button.danger-outline.tiny { padding: 0 10px; border-width: 1.5px; border-radius
 .stacked-form p { margin: 0; }
 .stacked-form p[hidden] { display: none; }
 .stacked-form input { flex: none; width: 100%; }
+
+/* Le mie statistiche */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+.stat .value { font-size: 28px; font-weight: 700; line-height: 1.2; }
+.stat .label { font-size: 12px; color: var(--color-tone-2); }
+a.button.full { width: 100%; justify-content: center; }

@@ -170,6 +170,7 @@ function currentView() {
   const params = new URLSearchParams(location.search);
   if (params.has("come-giocare")) return { name: "help" };
   if (params.has("impostazioni")) return { name: "settings" };
+  if (params.has("statistiche")) return { name: "stats" };
   if (params.has("account")) return { name: "account" };
   if (params.has("nuovo")) return { name: "new-group" };
   return { name: "groups", groupId: params.get("gruppo") };
@@ -237,6 +238,15 @@ async function route() {
     renderMenu();
     return view.name === "help" ? renderHelp() : renderSettings();
   }
+  if (view.name === "stats") {
+    if (state.session && !state.groups.length) {
+      try {
+        state.groups = JSON.parse(read("parle-groups") || "[]");
+      } catch {}
+    }
+    renderMenu();
+    return renderStats();
+  }
   if (!state.session) {
     state.groups = [];
     store("parle-groups", null);
@@ -282,11 +292,12 @@ function renderMenu() {
   const view = currentView();
   const current = (on) => (on ? ` aria-current="page"` : "");
   const icon = (d) => `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="var(--color-tone-3)" d="${d}"/></svg>`;
-  const groups = state.session
+  const stats = `<a class="item sub" data-nav href="?statistiche"${current(view.name === "stats")}>Le mie statistiche</a>`;
+  const groups = stats + (state.session
     ? state.groups
         .map((g) => `<a class="item sub" data-nav href="?gruppo=${encodeURIComponent(g.id)}"${current(view.name === "groups" && g.id === state.groupId)}>${esc(g.name)}</a>`)
         .join("") + `<a class="item sub" data-nav href="?nuovo"${current(view.name === "new-group")}>+ Nuovo gruppo</a>`
-    : "";
+    : "");
   $menu.innerHTML = `
     <a class="item" href="../">${icon("M8 5v14l11-7z")}Gioca</a>
     <a class="item" data-nav href="./"${current(view.name === "groups" && !(state.session && state.groupId))}>${icon("M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z")}Classifiche</a>
@@ -422,6 +433,102 @@ function changeSetting(setting, value) {
     }
   }
   renderSettings();
+}
+
+// ---------- my statistics ----------
+
+// From the account's results on the server (same on every device), or from this device when not logged in.
+async function renderStats() {
+  renderShell(`<h1 class="page-title">Le mie statistiche</h1><p class="muted center">Caricamento...</p>`);
+  let stats;
+  if (state.session) {
+    const rows = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await sb
+        .from("results")
+        .select("day, won, num_guesses")
+        .eq("user_id", state.session.user.id)
+        .order("day")
+        .range(from, from + 999);
+      if (error) return renderError(error);
+      rows.push(...data);
+      if (data.length < 1000) break;
+    }
+    stats = accountStats(rows);
+  } else {
+    stats = deviceStats();
+  }
+  if (currentView().name !== "stats") return; // the player moved on while loading
+
+  const number = (value, label) => `<div class="stat"><div class="value">${value}</div><div class="label">${label}</div></div>`;
+  const max = Math.max(...stats.dist, 1);
+  const best = stats.dist.slice(0, 6).indexOf(Math.max(...stats.dist.slice(0, 6)));
+  const bars = stats.dist
+    .map(
+      (n, i) => `<div class="row"><span>${i < 6 ? i + 1 : "X"}</span>
+        <div class="bar ${i === best && n ? "best" : ""}" style="width:${Math.max(8, (100 * n) / max)}%">${n}</div></div>`
+    )
+    .join("");
+  renderShell(`<h1 class="page-title">Le mie statistiche</h1>
+    <section class="module">
+      <div class="stat-grid">
+        ${number(stats.played, "Giocate")}
+        ${number(stats.played ? `${Math.round((100 * stats.wins) / stats.played)}%` : "-", "Vittorie")}
+        ${number(stats.current, "Serie attuale")}
+        ${number(stats.best, "Serie migliore")}
+      </div>
+    </section>
+    <section class="module">
+      <div class="module-head"><h2>Distribuzione dei tentativi</h2></div>
+      <div class="dist">${bars}</div>
+      ${stats.wins ? `<p class="muted small">Media: ${decimals.format(stats.guesses / stats.wins)} tentativi per parola indovinata.</p>` : ""}
+    </section>
+    ${
+      state.session
+        ? `<p class="muted small center">Calcolate dai risultati del tuo account: sono le stesse su tutti i tuoi dispositivi.</p>`
+        : `<div class="card">
+            <p style="margin-top:0"><strong>Queste sono le partite giocate su questo dispositivo.</strong></p>
+            <p class="muted small">Con un account le statistiche sono le stesse su tutti i tuoi dispositivi e puoi sfidare gli amici nelle classifiche.</p>
+            <a class="button primary full" data-nav href="?account">Accedi</a>
+          </div>`
+    }`);
+}
+
+// Series count consecutive days won; a loss or a day not played ends them. Today, if not played yet, doesn't.
+function accountStats(rows) {
+  const today = dayNumber(new Date());
+  const dist = [0, 0, 0, 0, 0, 0, 0];
+  let wins = 0, guesses = 0, best = 0, run = 0, prev = null;
+  for (const r of rows) {
+    if (r.won) {
+      wins += 1;
+      guesses += r.num_guesses;
+      dist[r.num_guesses - 1] += 1;
+      run = prev !== null && r.day === prev + 1 && run > 0 ? run + 1 : 1;
+    } else {
+      dist[6] += 1;
+      run = 0;
+    }
+    best = Math.max(best, run);
+    prev = r.day;
+  }
+  const last = rows[rows.length - 1];
+  const current = last && last.won && last.day >= today - 1 ? run : 0;
+  return { played: rows.length, wins, guesses, dist, current, best };
+}
+
+function deviceStats() {
+  const s = readJSON("statistics", null);
+  if (!s) return { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], current: 0, best: 0 };
+  const dist = [1, 2, 3, 4, 5, 6].map((k) => s.guesses?.[k] || 0).concat(s.guesses?.fail || 0);
+  return {
+    played: s.gamesPlayed || 0,
+    wins: s.gamesWon || 0,
+    guesses: dist.slice(0, 6).reduce((a, n, i) => a + n * (i + 1), 0),
+    dist,
+    current: s.currentStreak || 0,
+    best: s.maxStreak || 0,
+  };
 }
 
 function renderNeedLogin() {
