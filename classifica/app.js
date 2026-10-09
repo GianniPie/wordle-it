@@ -446,7 +446,7 @@ async function renderStats() {
     for (let from = 0; ; from += 1000) {
       const { data, error } = await sb
         .from("results")
-        .select("day, won, num_guesses")
+        .select("day, won, num_guesses, play_ms")
         .eq("user_id", state.session.user.id)
         .order("day")
         .range(from, from + 999);
@@ -477,6 +477,14 @@ async function renderStats() {
         ${number(stats.current, "Serie attuale")}
         ${number(stats.best, "Serie migliore")}
       </div>
+    </section>
+    <section class="module">
+      <div class="module-head"><h2>Tempo di gioco</h2></div>
+      <div class="stat-grid two">
+        ${number(stats.timeToday ? formatDuration(stats.timeToday) : "-", "Oggi")}
+        ${number(stats.timeAverage ? formatDuration(stats.timeAverage) : "-", "Media")}
+      </div>
+      <p class="muted small">Dalla prima lettera alla fine della partita. La media è sulle parole indovinate.</p>
     </section>
     <section class="module">
       <div class="module-head"><h2>Distribuzione dei tentativi</h2></div>
@@ -514,12 +522,30 @@ function accountStats(rows) {
   }
   const last = rows[rows.length - 1];
   const current = last && last.won && last.day >= today - 1 ? run : 0;
-  return { played: rows.length, wins, guesses, dist, current, best };
+  const timed = rows.filter((r) => r.won && r.play_ms > 0);
+  return {
+    played: rows.length, wins, guesses, dist, current, best,
+    timeToday: rows.find((r) => r.day === today)?.play_ms || null,
+    timeAverage: timed.length ? timed.reduce((a, r) => a + r.play_ms, 0) / timed.length : null,
+  };
+}
+
+// 2:05 or 1:02:05
+function formatDuration(ms) {
+  const total = Math.round(ms / 1000);
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), s = total % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 function deviceStats() {
   const s = readJSON("statistics", null);
-  if (!s) return { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], current: 0, best: 0 };
+  // Play times kept on this device by the game page: { day: { ms, won } }
+  const times = readJSON("parle-times", {});
+  const won = Object.values(times).filter((t) => t.won && t.ms > 0);
+  const timeToday = times[dayNumber(new Date())]?.ms || null;
+  const timeAverage = won.length ? won.reduce((a, t) => a + t.ms, 0) / won.length : null;
+  if (!s) return { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], current: 0, best: 0, timeToday, timeAverage };
   const dist = [1, 2, 3, 4, 5, 6].map((k) => s.guesses?.[k] || 0).concat(s.guesses?.fail || 0);
   return {
     played: s.gamesPlayed || 0,
@@ -528,6 +554,8 @@ function deviceStats() {
     dist,
     current: s.currentStreak || 0,
     best: s.maxStreak || 0,
+    timeToday,
+    timeAverage,
   };
 }
 

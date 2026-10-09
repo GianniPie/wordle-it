@@ -99,7 +99,7 @@ async function restoreToday(db) {
   if (!state?.solution) return;
   const playedHere = state.lastPlayedTs && db.dayNumber(new Date(state.lastPlayedTs)) === today;
   if (playedHere && ["WIN", "FAIL"].includes(state.gameStatus)) return;
-  const { data: r, error } = await db.sb.from("results").select("guesses, won").eq("user_id", session.user.id).eq("day", today).maybeSingle();
+  const { data: r, error } = await db.sb.from("results").select("guesses, won, play_ms").eq("user_id", session.user.id).eq("day", today).maybeSingle();
   if (error || !r) return;
   if (r.won && r.guesses[r.guesses.length - 1] !== state.solution) return; // not today's word: leave this device alone
   const mark = `parle-restored-${today}`;
@@ -118,6 +118,8 @@ async function restoreToday(db) {
         gameStatus: r.won ? "WIN" : "FAIL",
         lastPlayedTs: now,
         lastCompletedTs: now,
+        startedAt: null,
+        playMs: r.play_ms,
       })
     );
     localStorage.setItem("parle-synced", `${session.user.id}:${today}`);
@@ -127,7 +129,25 @@ async function restoreToday(db) {
   location.reload();
 }
 
+// Play time of each finished game on this device, for "Le mie statistiche" without an account: { day: { ms, won } }.
+function rememberTime() {
+  let state;
+  try {
+    state = JSON.parse(read("gameState") || "null");
+  } catch {}
+  if (!state || !["WIN", "FAIL"].includes(state.gameStatus) || !(state.playMs > 0) || !state.lastPlayedTs) return;
+  const d = new Date(state.lastPlayedTs);
+  const day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
+  try {
+    const times = JSON.parse(read("parle-times") || "{}");
+    if (times[day]) return;
+    times[day] = { ms: Math.round(state.playMs), won: state.gameStatus === "WIN" };
+    localStorage.setItem("parle-times", JSON.stringify(times));
+  } catch {}
+}
+
 function sync() {
+  rememberTime();
   if (!read(SESSION_KEY)) return;
   import("./db.js").then((db) => db.syncToday());
 }
@@ -143,3 +163,6 @@ if (read(SESSION_KEY))
 sync();
 // The game fires this when the last tile of a row has flipped; by then the finished game is saved.
 window.addEventListener("game-last-tile-revealed-in-row", () => setTimeout(sync, 100));
+// Also when the app is closed or put in the background before the tiles finish turning.
+window.addEventListener("pagehide", rememberTime);
+document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && rememberTime());

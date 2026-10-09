@@ -42,7 +42,8 @@ export async function syncToday() {
   const mark = `${session.user.id}:${day}`;
   if (localStorage.getItem("parle-synced") === mark) return null;
   const guesses = (state.boardState || []).filter(Boolean);
-  const { data, error } = await sb.rpc("submit_result", { p_day: day, p_guesses: guesses });
+  const playMs = state.playMs > 0 ? Math.round(state.playMs) : null;
+  const { data, error } = await sb.rpc("submit_result", { p_day: day, p_guesses: guesses, p_play_ms: playMs });
   if (error) {
     console.warn("Classifica: risultato non salvato", error.message);
     return null;

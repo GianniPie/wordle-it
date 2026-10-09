@@ -1073,7 +1073,9 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   boardState: e.boardState,
                   evaluations: e.evaluations,
                   solution: e.solution,
-                  gameStatus: e.gameStatus
+                  gameStatus: e.gameStatus,
+                  startedAt: null,
+                  playMs: null
               }), Da("event", "level_start", {
                   level_name: Fa(e.solution)
               })) : (e.boardState = o.boardState, e.evaluations = o.evaluations, e.rowIndex = o.rowIndex, e.solution = o.solution, e.dayOffset = Na(e.today), e.letterEvaluations = Oa(e.boardState, e.evaluations), e.gameStatus = o.gameStatus, e.lastCompletedTs = o.lastCompletedTs, e.hardMode = o.hardMode, e.gameStatus !== Qa && (e.canInput = !1), e.restoringFromLocalStorage = !0), e
@@ -1137,7 +1139,8 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                           isStreak: !!this.lastCompletedTs && 1 === $a(new Date(this.lastCompletedTs), new Date),
                           numGuesses: this.rowIndex
                       }), ja({
-                          lastCompletedTs: Date.now()
+                          lastCompletedTs: Date.now(),
+                          playMs: za().startedAt ? Date.now() - za().startedAt : null
                       }), this.gameStatus = l ? Za : es, Da("event", "level_end", {
                           level_name: Fa(this.solution),
                           num_guesses: this.rowIndex,
@@ -1163,6 +1166,10 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
           }, {
               key: "addLetter",
               value: function(e) {
+                  // Play time starts with the first letter of the day.
+                  this.gameStatus === Qa && this.canInput && !za().startedAt && ja({
+                      startedAt: Date.now()
+                  });
                   if (this.gameStatus === Qa && this.canInput && null != this.selectedTile) {
                       var a = this.boardState[this.rowIndex],
                           s = this.$board.querySelectorAll("game-row")[this.rowIndex];

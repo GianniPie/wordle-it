@@ -800,3 +800,4 @@ button.danger-outline.tiny { padding: 0 10px; border-width: 1.5px; border-radius
 .stat .value { font-size: 28px; font-weight: 700; line-height: 1.2; }
 .stat .label { font-size: 12px; color: var(--color-tone-2); }
 a.button.full { width: 100%; justify-content: center; }
+.stat-grid.two { grid-template-columns: repeat(2, 1fr); }
