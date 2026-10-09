@@ -191,7 +191,7 @@ async function showDefinition(el, day, word) {
   if (!el) return;
   const d = await loadDefinition(day);
   const lemma = d?.lemma || word;
-  const treccani = `<a class="treccani" href="https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/" target="_blank" rel="noopener">Apri su Treccani</a>`;
+  const treccani = `<a class="treccani" href="https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/#vocabolario" target="_blank" rel="noopener">Apri su Treccani</a>`;
   const title = `<p class="word">${esc(word)}</p>`;
   if (!d || d.status !== "ok" || !d.senses?.length) {
     el.innerHTML = `${title}<p class="none">Definizione non disponibile.</p>${treccani}`;
