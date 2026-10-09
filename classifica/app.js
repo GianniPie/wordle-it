@@ -461,6 +461,7 @@ async function renderStats() {
   if (currentView().name !== "stats") return; // the player moved on while loading
 
   const number = (value, label) => `<div class="stat"><div class="value">${value}</div><div class="label">${label}</div></div>`;
+  const time = (ms) => (ms ? formatDuration(ms) : "-");
   const max = Math.max(...stats.dist, 1);
   const best = stats.dist.slice(0, 6).indexOf(Math.max(...stats.dist.slice(0, 6)));
   const bars = stats.dist
@@ -470,21 +471,25 @@ async function renderStats() {
     )
     .join("");
   renderShell(`<h1 class="page-title">Le mie statistiche</h1>
-    <section class="module">
-      <div class="stat-grid">
+    <section class="module stats-summary">
+      <div class="stat-grid two">
         ${number(stats.played, "Giocate")}
         ${number(stats.played ? `${Math.round((100 * stats.wins) / stats.played)}%` : "-", "Vittorie")}
-        ${number(stats.current, "Serie attuale")}
-        ${number(stats.best, "Serie migliore")}
       </div>
-    </section>
-    <section class="module">
-      <div class="module-head"><h2>Tempo di gioco</h2></div>
       <div class="stat-grid two">
-        ${number(stats.timeToday ? formatDuration(stats.timeToday) : "-", "Oggi")}
-        ${number(stats.timeAverage ? formatDuration(stats.timeAverage) : "-", "Media")}
+        ${number(stats.best, "Serie migliore")}
+        ${number(stats.worst ?? "-", "Serie peggiore")}
       </div>
-      <p class="muted small">Dalla prima lettera alla fine della partita. La media è sulle parole indovinate.</p>
+      <div class="stat-grid three">
+        ${number(time(stats.timeBest), "Tempo migliore")}
+        ${number(time(stats.timeWorst), "Tempo peggiore")}
+        ${number(time(stats.timeAverage), "Tempo medio")}
+      </div>
+      <h2>Oggi</h2>
+      <div class="stat-grid two">
+        ${number(stats.current, "Serie di oggi")}
+        ${number(time(stats.timeToday), "Tempo di oggi")}
+      </div>
     </section>
     <section class="module">
       <div class="module-head"><h2>Distribuzione dei tentativi</h2></div>
@@ -522,12 +527,29 @@ function accountStats(rows) {
   }
   const last = rows[rows.length - 1];
   const current = last && last.won && last.day >= today - 1 ? run : 0;
-  const timed = rows.filter((r) => r.won && r.play_ms > 0);
+  const timed = rows.filter((r) => r.won && r.play_ms > 0).map((r) => r.play_ms);
   return {
     played: rows.length, wins, guesses, dist, current, best,
+    worst: worstSeries(rows, today),
     timeToday: rows.find((r) => r.day === today)?.play_ms || null,
-    timeAverage: timed.length ? timed.reduce((a, r) => a + r.play_ms, 0) / timed.length : null,
+    timeBest: timed.length ? Math.min(...timed) : null,
+    timeWorst: timed.length ? Math.max(...timed) : null,
+    timeAverage: timed.length ? timed.reduce((a, ms) => a + ms, 0) / timed.length : null,
   };
+}
+
+// Most days in a row without guessing the word (X/6 or a day not played), from the first game to yesterday
+// (today too once played).
+function worstSeries(rows, today) {
+  if (!rows.length) return 0;
+  const won = new Map(rows.map((r) => [r.day, r.won]));
+  const end = won.has(today) ? today : today - 1;
+  let worst = 0, run = 0;
+  for (let d = rows[0].day; d <= end; d++) {
+    run = won.get(d) ? 0 : run + 1;
+    worst = Math.max(worst, run);
+  }
+  return worst;
 }
 
 // 2:05 or 1:02:05
@@ -545,7 +567,9 @@ function deviceStats() {
   const won = Object.values(times).filter((t) => t.won && t.ms > 0);
   const timeToday = times[dayNumber(new Date())]?.ms || null;
   const timeAverage = won.length ? won.reduce((a, t) => a + t.ms, 0) / won.length : null;
-  if (!s) return { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], current: 0, best: 0, timeToday, timeAverage };
+  const timeBest = won.length ? Math.min(...won.map((t) => t.ms)) : null;
+  const timeWorst = won.length ? Math.max(...won.map((t) => t.ms)) : null;
+  if (!s) return { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], current: 0, best: 0, worst: null, timeToday, timeBest, timeWorst, timeAverage };
   const dist = [1, 2, 3, 4, 5, 6].map((k) => s.guesses?.[k] || 0).concat(s.guesses?.fail || 0);
   return {
     played: s.gamesPlayed || 0,
@@ -554,7 +578,10 @@ function deviceStats() {
     dist,
     current: s.currentStreak || 0,
     best: s.maxStreak || 0,
+    worst: null, // the device doesn't keep the day by day history needed
     timeToday,
+    timeBest,
+    timeWorst,
     timeAverage,
   };
 }

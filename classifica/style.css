@@ -801,3 +801,7 @@ button.danger-outline.tiny { padding: 0 10px; border-width: 1.5px; border-radius
 .stat .label { font-size: 12px; color: var(--color-tone-2); }
 a.button.full { width: 100%; justify-content: center; }
 .stat-grid.two { grid-template-columns: repeat(2, 1fr); }
+.stat-grid.three { grid-template-columns: repeat(3, 1fr); }
+/* Le mie statistiche: one module, groups separated by a thin line */
+.stats-summary .stat-grid + .stat-grid { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-tone-4); }
+.stats-summary h2 { margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--color-tone-4); text-align: center; }
