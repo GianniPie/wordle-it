@@ -689,15 +689,15 @@ table.results.flipped th.names, table.results.flipped .corner { position: sticky
 /* Risultati options: separate on/off buttons, green outline when off, filled green when on */
 .toggles {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   margin-bottom: 10px;
 }
 .toggles button {
   flex: 1 1 auto;
+  min-width: 0;
   height: 32px;
-  padding: 0 10px;
-  font-size: 12.5px;
+  padding: 0 4px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   color: var(--color-correct);

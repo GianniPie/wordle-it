@@ -952,7 +952,7 @@ function resultsModule(stats) {
   return {
     body: `<div class="toggles" role="group" aria-label="Opzioni della tabella">
         ${option("day", "Giorno")}${option("word", "N° parola")}${option("wholeMonth", "Mese intero")}
-        <button data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">⇄ Ruota</button>
+        <button data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">Ruota</button>
       </div>
       <div class="scroll-x"><table class="results${state.resultsFlipped ? " flipped" : ""}">${table}</table></div>`,
   };
