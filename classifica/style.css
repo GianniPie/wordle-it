@@ -872,3 +872,23 @@ main:has(> .stats-page) { padding-bottom: 10px; }
   line-height: 1;
 }
 .stats-page > p.small { margin: 0; }
+
+/* Come giocare fills the screen height: the card takes the space left, the examples spread out in it
+   and the tiles grow on tall screens and shrink on short ones. */
+main:has(> .help-page) { padding-bottom: 10px; }
+.help-page { display: flex; flex-direction: column; min-height: 100%; --tile: clamp(26px, 5.6dvh, 52px); }
+.help-page .page-title { margin: clamp(4px, 1.2dvh, 12px) 0 clamp(6px, 1.4dvh, 14px); }
+.help-page .page-intro { margin-bottom: clamp(8px, 1.6dvh, 16px); }
+.help-page .card { flex: 1; display: flex; flex-direction: column; }
+.help-page .examples {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  margin: clamp(4px, 1.4dvh, 16px) 0;
+}
+.help-page .example { margin: clamp(2px, 1.2dvh, 14px) 0; }
+.help-page .example p { margin: clamp(2px, 0.8dvh, 10px) 0 0; line-height: 1.35; }
+.help-page .tile-row { grid-template-columns: repeat(5, var(--tile)); }
+.help-page .tile { width: var(--tile); height: var(--tile); font-size: calc(var(--tile) * 0.6); line-height: 1; }
+.help-page .card-note { margin-top: 0; }

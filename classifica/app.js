@@ -411,7 +411,7 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeMenu());
 function renderHelp() {
   const tile = (letter, evaluation = "") => `<span class="tile ${evaluation}">${letter}</span>`;
   const row = (word, at, evaluation) => `<div class="tile-row">${[...word].map((l, i) => tile(l, i === at ? evaluation : "")).join("")}</div>`;
-  renderShell(`<h1 class="page-title">Come giocare</h1>
+  renderShell(`<div class="help-page"><h1 class="page-title">Come giocare</h1>
     <p class="page-intro">Indovina delle <strong>PARoLE</strong> di 5 lettere in 6 tentativi. Un nuovo gioco ogni giorno!</p>
     <div class="card">
       <h2 class="card-title">I colori</h2>
@@ -422,7 +422,7 @@ function renderHelp() {
         <div class="example">${row("vaghi", 3, "absent")}<p>La lettera <strong>H</strong> non è nella parola.</p></div>
       </div>
       <p class="card-note muted small">PAR🇮🇹LE è una versione italiana (non ufficiale) di <a href="https://www.nytimes.com/games/wordle/index.html">WORDLE</a>.</p>
-    </div>`);
+    </div></div>`);
 }
 
 // ---------- settings (stored where the game reads them) ----------
