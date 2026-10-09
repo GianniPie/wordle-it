@@ -94,6 +94,8 @@ function currentGroup() {
 function errorText(error) {
   const msg = error?.message || String(error);
   if (/rate limit/i.test(msg)) return "Troppe email inviate, riprova tra un po'.";
+  if (/security purposes/i.test(msg)) return "Aspetta un minuto prima di chiedere un nuovo codice.";
+  if (/expired|invalid.*(token|otp)|(token|otp).*invalid/i.test(msg)) return "Codice sbagliato o scaduto.";
   if (/invalid invite code/i.test(msg)) return "Link di invito non valido o scaduto.";
   return msg;
 }
@@ -126,7 +128,7 @@ async function init() {
 
 async function route() {
   $logout.hidden = !state.session;
-  if (!state.session) return renderLogin();
+  if (!state.session) return renderLogin(read("parle-login-email"));
 
   const { data: profile, error } = await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle();
   if (error) return renderError(error);
@@ -161,10 +163,19 @@ async function renderLogin(sentTo) {
     $app.innerHTML = `${invite}
       <div class="card center" style="margin-top:16px">
         <p><strong>Controlla la posta</strong></p>
-        <p>Abbiamo inviato un link di accesso a <strong>${esc(sentTo)}</strong>. Aprilo da questo dispositivo per entrare.</p>
+        <p>Abbiamo inviato un codice a <strong>${esc(sentTo)}</strong>. Scrivilo qui:</p>
+        <form class="inline" data-form="code">
+          <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Codice" required style="text-align:center;letter-spacing:4px;font-size:20px" />
+          <button class="primary" type="submit">Accedi</button>
+        </form>
+        <p class="error small" data-error hidden></p>
         <p class="muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
-        <button class="link" data-action="login-again">Usa un'altra email</button>
+        <div class="actions" style="justify-content:center">
+          <button class="link" data-action="resend-code">Manda un nuovo codice</button>
+          <button class="link" data-action="login-again">Usa un'altra email</button>
+        </div>
       </div>`;
+    $app.querySelector("input").focus();
     return;
   }
   $app.innerHTML = `${invite}
@@ -172,7 +183,7 @@ async function renderLogin(sentTo) {
     <p>Crea un gruppo, invita gli amici con un link e ogni giorno il tuo risultato di Par🇮🇹le finisce in classifica. A fine mese c'è un vincitore.</p>
     <p class="muted small">Punti: indovinata al 1° tentativo 6 punti, al 2° 5 punti, ... al 6° 1 punto. Non indovinata o non giocata: 0.</p>
     <div class="card">
-      <p style="margin-top:0"><strong>Entra con la tua email</strong><br><span class="muted small">Ti mandiamo un link, niente password.</span></p>
+      <p style="margin-top:0"><strong>Entra con la tua email</strong><br><span class="muted small">Ti mandiamo un codice, niente password.</span></p>
       <form class="inline" data-form="login">
         <input type="email" name="email" placeholder="nome@email.it" autocomplete="email" required />
         <button class="primary" type="submit">Invia</button>
@@ -185,10 +196,31 @@ async function submitLogin(form) {
   const email = form.email.value.trim();
   const button = form.querySelector("button");
   button.disabled = true;
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl() } });
+  const { error } = await sb.auth.signInWithOtp({ email });
   button.disabled = false;
   if (error) return showFormError(form, error);
+  // Remembered so the code screen comes back if the app reloads while the player reads the email.
+  store("parle-login-email", email);
   renderLogin(email);
+}
+
+async function submitCode(form) {
+  const email = read("parle-login-email");
+  const token = form.code.value.replace(/\D/g, "");
+  if (!email || !token) return;
+  const button = form.querySelector("button");
+  button.disabled = true;
+  const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+  button.disabled = false;
+  if (error) return showFormError(form, error);
+  store("parle-login-email", null);
+}
+
+async function resendCode() {
+  const email = read("parle-login-email");
+  if (!email) return renderLogin();
+  const { error } = await sb.auth.signInWithOtp({ email });
+  toast(error ? errorText(error) : "Nuovo codice inviato", 3000);
 }
 
 function showFormError(form, error) {
@@ -635,7 +667,11 @@ async function refreshGroup() {
 
 const actions = {
   reload: () => location.reload(),
-  "login-again": () => renderLogin(),
+  "login-again": () => {
+    store("parle-login-email", null);
+    renderLogin();
+  },
+  "resend-code": resendCode,
   join: joinPending,
   "skip-join": () => {
     clearJoin();
@@ -718,7 +754,7 @@ const actions = {
   },
 };
 
-const forms = { login: submitLogin, name: submitName, create: submitCreate };
+const forms = { login: submitLogin, code: submitCode, name: submitName, create: submitCreate };
 
 $app.addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");
