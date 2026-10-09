@@ -18,7 +18,7 @@ const state = {
   pendingJoin: null,
   pendingFrom: null, // id of the member who shared the invite link
   chart: null,
-  afterLogin: false, // just logged in from the Account page: show the leaderboards
+  editingName: false, // Account page: name being changed in place
 };
 
 // ---------- helpers ----------
@@ -145,6 +145,7 @@ function currentView() {
 }
 
 function navigate(url, replace = false) {
+  state.editingName = false;
   history[replace ? "replaceState" : "pushState"](null, "", url);
   closeMenu();
   window.scrollTo(0, 0);
@@ -228,13 +229,6 @@ async function route() {
   }
   if (!state.profile) return renderName();
 
-  if (state.afterLogin) {
-    state.afterLogin = false;
-    if (view.name === "account") {
-      history.replaceState(null, "", location.pathname);
-      view = currentView();
-    }
-  }
 
   await loadGroups();
   if (state.pendingJoin) return renderJoin();
@@ -386,11 +380,21 @@ function renderNeedLogin() {
 
 function renderAccount() {
   const name = state.profile.display_name;
-  renderShell(`<h2>Il tuo account</h2>
+  const who = state.editingName
+    ? `<form class="who rename" data-form="rename-me">
+        <input type="text" name="name" maxlength="24" value="${esc(name)}" autocomplete="nickname" required aria-label="Il tuo nome" />
+        <p class="error small" data-error hidden></p>
+        <span class="rename-actions">
+          <button class="secondary" type="button" data-action="cancel-name">Annulla</button>
+          <button class="primary" type="submit">Salva</button>
+        </span>
+      </form>`
+    : `<span class="who"><strong>${esc(name)}</strong><span class="muted small">${esc(state.session.user.email || "")}</span></span>
+      <button class="link" data-action="edit-name">Cambia nome</button>`;
+  renderShell(`<h2>Account</h2>
     <div class="card profile">
       <span class="avatar" aria-hidden="true">${esc([...name][0] || "?")}</span>
-      <span class="who"><strong>${esc(name)}</strong><span class="muted small">${esc(state.session.user.email || "")}</span></span>
-      <button class="link" data-action="edit-name">Cambia nome</button>
+      ${who}
     </div>
     <p class="muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
     <button class="secondary" data-action="logout">Esci</button>
@@ -434,7 +438,7 @@ async function renderLogin(sentTo) {
     return;
   }
   $app.innerHTML = `${invite}
-    <h2>Accedi al tuo account</h2>
+    <h2>Account</h2>
     <p>Con un account i tuoi risultati di Par🇮🇹le entrano nella classifica dei gruppi di amici. Se ce l'hai già, usa la stessa email per ritrovare tutto su questo dispositivo.</p>
     <div class="card">
       <p style="margin-top:0"><strong>La tua email</strong><br><span class="muted small">Ti mandiamo un codice da scrivere qui, niente password.</span></p>
@@ -464,13 +468,9 @@ async function submitCode(form) {
   if (!email || !token) return;
   const button = form.querySelector("button");
   button.disabled = true;
-  state.afterLogin = true;
   const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
   button.disabled = false;
-  if (error) {
-    state.afterLogin = false;
-    return showFormError(form, error);
-  }
+  if (error) return showFormError(form, error);
   store("parle-login-email", null);
 }
 
@@ -501,6 +501,20 @@ function renderName() {
       <p class="error small" data-error hidden></p>
     </div>`;
   $app.querySelector("input").focus();
+}
+
+async function submitNewName(form) {
+  const name = form.name.value.trim();
+  if (!name) return;
+  if (name !== state.profile.display_name) {
+    const { error } = await sb.from("profiles").update({ display_name: name }).eq("id", state.session.user.id);
+    if (error) return showFormError(form, error);
+    state.profile = { ...state.profile, display_name: name };
+    state.data = {}; // group pages show the new name
+    toast("Nome aggiornato");
+  }
+  state.editingName = false;
+  renderAccount();
 }
 
 async function submitName(form) {
@@ -978,8 +992,15 @@ const actions = {
     navigate("./", true);
   },
   "edit-name": () => {
-    renderName();
-    $app.querySelector("input").value = state.profile.display_name;
+    state.editingName = true;
+    renderAccount();
+    const input = $app.querySelector('form[data-form="rename-me"] input');
+    input.focus();
+    input.select();
+  },
+  "cancel-name": () => {
+    state.editingName = false;
+    renderAccount();
   },
   "delete-account": async () => {
     const ok = await modal({
@@ -1011,7 +1032,7 @@ const actions = {
   },
 };
 
-const forms = { login: submitLogin, code: submitCode, name: submitName, create: submitCreate };
+const forms = { login: submitLogin, code: submitCode, name: submitName, "rename-me": submitNewName, create: submitCreate };
 
 $app.addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");

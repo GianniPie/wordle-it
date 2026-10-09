@@ -588,3 +588,9 @@ main a:not(.button) { color: var(--color-tone-1); }
 }
 .setting.stacked .segmented { display: flex; }
 .setting.stacked .segmented button { flex: 1; }
+
+/* Account: change the name in place */
+.card.profile form.rename { gap: 10px; }
+.card.profile form.rename input { flex: none; width: 100%; }
+.rename-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.rename-actions button { height: 38px; padding: 0 16px; }
