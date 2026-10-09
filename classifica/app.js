@@ -336,7 +336,7 @@ window.addEventListener("keydown", (e) => e.key === "Escape" && closeMenu());
 function renderHelp() {
   const tile = (letter, evaluation = "") => `<span class="tile ${evaluation}">${letter}</span>`;
   const row = (word, at, evaluation) => `<div class="tile-row">${[...word].map((l, i) => tile(l, i === at ? evaluation : "")).join("")}</div>`;
-  renderShell(`<h2>Come giocare</h2>
+  renderShell(`<h1 class="page-title">Come giocare</h1>
     <p>Indovina delle <strong>PARoLE</strong> di 5 lettere in 6 tentativi.</p>
     <p>PAR🇮🇹LE è una versione italiana (non ufficiale) di <a href="https://www.nytimes.com/games/wordle/index.html">WORDLE</a>.</p>
     <p>Dopo ogni tentativo, i colori delle tessere cambieranno per mostrarti quanto vicino sei andato ad indovinare la parola.</p>
@@ -394,7 +394,7 @@ function renderSettings() {
       <div class="segmented" role="radiogroup" aria-label="${title}">${buttons}</div>
     </div>`;
   const onOff = (setting, on) => choice(setting, "off", "Disattivo", !on) + choice(setting, "on", "Attivo", on);
-  renderShell(`<h2>Impostazioni</h2>
+  renderShell(`<h1 class="page-title">Impostazioni</h1>
     <div class="settings">
       ${row("Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", onOff("hard-mode", !!gs.hardMode))}
       ${row("Tema", '"Sistema" segue le impostazioni del telefono',
@@ -425,7 +425,7 @@ function changeSetting(setting, value) {
 }
 
 function renderNeedLogin() {
-  $app.innerHTML = `<h2>Classifiche</h2>
+  $app.innerHTML = `<h1 class="page-title">Classifiche</h1>
     <p>Per vedere le classifiche dei tuoi gruppi e sfidare gli amici, accedi al tuo account.</p>
     <p><a class="button primary" data-nav href="?account">Accedi</a></p>`;
 }
@@ -450,7 +450,7 @@ function renderAccount() {
         </span>
       </form>`
     : `<span class="who"><strong>${esc(name)}</strong><span class="muted small email">${esc(state.session.user.email || "")}</span></span>`;
-  renderShell(`<h2>Account</h2>
+  renderShell(`<h1 class="page-title">Account</h1>
     <div class="card profile${state.editingName ? " editing" : ""}">
       ${avatarHtml(state.profile, "avatar")}
       ${who}
@@ -522,7 +522,7 @@ function renderAvatarEditor() {
     <input type="file" id="avatar-file" accept="image/*" hidden />`;
   const letter = `<div class="avatar-stage"><span class="avatar letter-preview">${esc([...name][0] || "?")}</span></div>
     <p class="muted small center">La prima lettera del tuo nome su sfondo verde.</p>`;
-  renderShell(`<h2>Cambia avatar</h2>
+  renderShell(`<h1 class="page-title">Cambia avatar</h1>
     <div class="card avatar-editor">
       <div class="segmented" role="radiogroup" aria-label="Tipo di avatar">${choice("photo", "Foto")}${choice("letter", "Iniziale")}</div>
       ${ed.mode === "photo" ? photo : letter}
@@ -658,7 +658,7 @@ async function renderLogin(sentTo) {
     return;
   }
   $app.innerHTML = `${invite}
-    <h2>Account</h2>
+    <h1 class="page-title">Account</h1>
     <p>Con un account i tuoi risultati di Par🇮🇹le entrano nella classifica dei gruppi di amici. Se ce l'hai già, usa la stessa email per ritrovare tutto su questo dispositivo.</p>
     <div class="card">
       <p style="margin-top:0"><strong>La tua email</strong><br><span class="muted small">Ti mandiamo un codice da scrivere qui, niente password.</span></p>
@@ -711,7 +711,7 @@ function showFormError(form, error) {
 // ---------- profile ----------
 
 function renderName() {
-  $app.innerHTML = `<h2>Come ti chiami?</h2>
+  $app.innerHTML = `<h1 class="page-title">Come ti chiami?</h1>
     <p>Questo nome lo vedranno gli altri nei tuoi gruppi.</p>
     <div class="card">
       <form class="inline" data-form="name">
@@ -865,7 +865,7 @@ function renderShell(body) {
 }
 
 function renderNoGroups() {
-  renderShell(`<h2>Classifiche</h2>
+  renderShell(`<h1 class="page-title">Classifiche</h1>
     <p>Ciao ${esc(state.profile.display_name)}, non sei ancora in nessun gruppo.</p>
     <div class="card">
       <p style="margin-top:0"><strong>Entrare nel gruppo di un amico</strong><br><span class="muted small">Apri il link di invito che ti ha mandato.</span></p>
@@ -875,7 +875,7 @@ function renderNoGroups() {
 }
 
 function renderCreate() {
-  renderShell(`<h2>Nuovo gruppo</h2>${createForm()}`);
+  renderShell(`<h1 class="page-title">Nuovo gruppo</h1>${createForm()}`);
   $app.querySelector("input").focus();
 }
 
@@ -1285,7 +1285,7 @@ function manageSection(group, data) {
       <p style="margin-top:0"><strong>Invita gli amici</strong><br><span class="muted small">Chi apre questo link può entrare nel gruppo.</span></p>
       <div class="invite">
         <code>${esc(inviteUrl(group.invite_code))}</code>
-        <button class="secondary" data-action="share">${navigator.share ? "Condividi" : "Copia"}</button>
+        <button class="secondary compact" data-action="share">${navigator.share ? "Condividi" : "Copia"}</button>
       </div>
       <ul class="members">${members}</ul>
       <div class="actions group-actions">
