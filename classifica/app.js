@@ -168,7 +168,6 @@ function errorText(error) {
 // ---------- startup ----------
 
 async function init() {
-  document.getElementById("puzzle-number").textContent = `#${dayNumber(new Date())}`;
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
   const params = new URLSearchParams(location.search);
   const join = params.get("join");
@@ -209,6 +208,7 @@ async function route() {
   if (!state.session) {
     state.groups = [];
     store("parle-groups", null);
+    store("parle-name", null);
     renderMenu();
     if (view.name === "account" || state.pendingJoin) return renderLogin(read("parle-login-email"));
     return renderNeedLogin();
@@ -218,6 +218,7 @@ async function route() {
     const { data: profile, error } = await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle();
     if (error) return renderError(error);
     state.profile = profile;
+    store("parle-name", profile?.display_name ?? null);
     if (profile) {
       syncToday().then((saved) => {
         if (saved) {
@@ -243,6 +244,7 @@ async function route() {
 // ---------- menu ----------
 
 function renderMenu() {
+  renderAccountSlot();
   const view = currentView();
   const current = (on) => (on ? ` aria-current="page"` : "");
   const icon = (d) => `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="var(--color-tone-3)" d="${d}"/></svg>`;
@@ -258,6 +260,20 @@ function renderMenu() {
     <a class="item" data-nav href="?account"${current(view.name === "account")}>${icon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z")}Account</a>
     <a class="item" data-nav href="?come-giocare"${current(view.name === "help")}>${icon("M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z")}Come giocare</a>
     <a class="item" data-nav href="?impostazioni"${current(view.name === "settings")}>${icon("M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z")}Impostazioni</a>`;
+}
+
+// Shown in the header avatar until the name is known.
+const PERSON_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#fff" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+
+function renderAccountSlot() {
+  const slot = document.getElementById("account-slot");
+  const current = currentView().name === "account" ? ` aria-current="page"` : "";
+  if (!state.session) {
+    slot.innerHTML = `<a class="header-login" data-nav href="?account" title="Non hai fatto l'accesso"${current}>ACCEDI</a>`;
+    return;
+  }
+  const name = state.profile?.display_name || read("parle-name") || "";
+  slot.innerHTML = `<a class="header-avatar" data-nav href="?account" aria-label="Account${name ? ` di ${esc(name)}` : ""}"${current}>${name ? esc([...name][0]) : PERSON_ICON}</a>`;
 }
 
 function closeMenu() {
@@ -392,7 +408,7 @@ function renderAccount() {
     : `<span class="who"><strong>${esc(name)}</strong><span class="muted small">${esc(state.session.user.email || "")}</span></span>
       <button class="link" data-action="edit-name">Cambia nome</button>`;
   renderShell(`<h2>Account</h2>
-    <div class="card profile">
+    <div class="card profile${state.editingName ? " editing" : ""}">
       <span class="avatar" aria-hidden="true">${esc([...name][0] || "?")}</span>
       ${who}
     </div>
@@ -510,6 +526,8 @@ async function submitNewName(form) {
     const { error } = await sb.from("profiles").update({ display_name: name }).eq("id", state.session.user.id);
     if (error) return showFormError(form, error);
     state.profile = { ...state.profile, display_name: name };
+    store("parle-name", name);
+    renderMenu();
     state.data = {}; // group pages show the new name
     toast("Nome aggiornato");
   }
@@ -526,6 +544,7 @@ async function submitName(form) {
     : await sb.from("profiles").insert(row);
   if (error) return showFormError(form, error);
   state.profile = { ...state.profile, id: row.id, display_name: name };
+  store("parle-name", name);
   state.data = {};
   route();
 }
@@ -949,6 +968,7 @@ const actions = {
     state.profile = null;
     store("parle-groups", null);
     store("parle-group", null);
+    store("parle-name", null);
   },
   month: (el) => {
     state.month += Number(el.dataset.step);
@@ -1022,7 +1042,7 @@ const actions = {
     if (!ok) return;
     const { error } = await sb.rpc("delete_my_account");
     if (error) return toast(errorText(error), 3000);
-    ["parle-synced", "parle-group", "parle-groups", "parle-login-email"].forEach((k) => store(k, null));
+    ["parle-synced", "parle-group", "parle-groups", "parle-login-email", "parle-name"].forEach((k) => store(k, null));
     state.data = {};
     state.groups = [];
     state.groupId = null;
