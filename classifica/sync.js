@@ -209,8 +209,15 @@ prefetchDefinition();
 function sync() {
   rememberTime();
   if (!read(SESSION_KEY)) return;
-  import("./db.js").then((db) => db.syncToday());
+  import("./db.js").then(async (db) => {
+    await db.flushPending();
+    await db.syncToday();
+  });
 }
+
+// Send the queue as soon as a game ends or the network comes back.
+window.addEventListener("parle-result-queued", sync);
+window.addEventListener("online", sync);
 
 renderGroups();
 renderAccount();

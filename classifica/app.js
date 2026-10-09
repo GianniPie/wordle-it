@@ -1,4 +1,4 @@
-import { sb, dayNumber, dayDate, points, MISSED_DAY_POINTS, syncToday } from "./db.js";
+import { sb, dayNumber, dayDate, points, MISSED_DAY_POINTS, syncToday, flushPending } from "./db.js";
 
 const $app = document.getElementById("app");
 const $menu = document.getElementById("menu");
@@ -264,7 +264,9 @@ async function route() {
     store("parle-name", profile?.display_name ?? null);
     store("parle-avatar", profile?.avatar_url ?? null);
     if (profile) {
-      syncToday().then((saved) => {
+      flushPending()
+        .then(async (sent) => sent + ((await syncToday()) ? 1 : 0))
+        .then((saved) => {
         if (saved) {
           state.data = {};
           if (currentView().name === "groups" && state.groups.length) loadGroup();

@@ -1141,7 +1141,20 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       }), ja({
                           lastCompletedTs: Date.now(),
                           playMs: za().startedAt ? Date.now() - za().startedAt : null
-                      }), this.gameStatus = l ? Za : es, Da("event", "level_end", {
+                      }), function(game) {
+                          // Queue the finished game for the leaderboard right away (no network needed);
+                          // classifica/sync.js sends the queue whenever the network is there, and the game never clears it.
+                          try {
+                              var queue = JSON.parse(window.localStorage.getItem("parle-pending") || "[]").filter((function(q) {
+                                  return q.day !== game.dayOffset
+                              }));
+                              queue.push({
+                                  day: game.dayOffset,
+                                  guesses: game.boardState.filter(Boolean),
+                                  playMs: za().playMs
+                              }), window.localStorage.setItem("parle-pending", JSON.stringify(queue.slice(-10))), window.dispatchEvent(new Event("parle-result-queued"))
+                          } catch (x) {}
+                      }(this), this.gameStatus = l ? Za : es, Da("event", "level_end", {
                           level_name: Fa(this.solution),
                           num_guesses: this.rowIndex,
                           success: l

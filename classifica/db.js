@@ -26,6 +26,38 @@ export function points(result) {
   return result.won ? result.num_guesses : 7;
 }
 
+// Sends the games queued by the game when they ended ("parle-pending"), oldest first. A game leaves the queue
+// only when the server has it, or when it can never be accepted (too old, not a valid game); otherwise it is
+// tried again at the next opening or when the network comes back.
+let flushing = null;
+export function flushPending() {
+  if (flushing) return flushing;
+  flushing = (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return 0;
+    let queue, sent = 0;
+    try {
+      queue = JSON.parse(localStorage.getItem("parle-pending") || "[]");
+    } catch {
+      return 0;
+    }
+    for (const item of [...queue].sort((a, b) => a.day - b.day)) {
+      const playMs = item.playMs > 0 ? Math.round(item.playMs) : null;
+      const { error } = await sb.rpc("submit_result", { p_day: item.day, p_guesses: item.guesses, p_play_ms: playMs });
+      const final = !error || /not a recent puzzle|invalid guesses|incomplete game/.test(error.message);
+      if (!final) continue; // network or server trouble: keep it for later
+      try {
+        const left = JSON.parse(localStorage.getItem("parle-pending") || "[]").filter((q) => q.day !== item.day);
+        localStorage.setItem("parle-pending", JSON.stringify(left));
+        if (!error) localStorage.setItem("parle-synced", `${session.user.id}:${item.day}`);
+      } catch {}
+      if (!error) sent += 1;
+    }
+    return sent;
+  })().finally(() => (flushing = null));
+  return flushing;
+}
+
 // Uploads today's finished game from the game's own saved state, once per user and day.
 export async function syncToday() {
   const { data: { session } } = await sb.auth.getSession();
