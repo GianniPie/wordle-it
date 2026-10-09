@@ -21,6 +21,10 @@
   --soft: color-mix(in srgb, var(--color-correct) 12%, transparent);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 14px rgba(0, 0, 0, 0.06);
   --radius: 12px;
+  --best-bg: color-mix(in srgb, var(--color-correct) 20%, transparent);
+  --best-text: #2f6b2b;
+  --worst-bg: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  --worst-text: #8f2318;
   --game-max-width: 500px;
   font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
@@ -38,6 +42,8 @@
   --color-absent: var(--color-tone-4);
   --color-danger: #e57368;
   --color-correct-dark: #477a43;
+  --best-text: #9bd896;
+  --worst-text: #f2a39b;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 .colorblind {
@@ -294,7 +300,6 @@ td.pos { width: 28px; text-align: center; font-weight: 700; }
 td.name { font-weight: 700; overflow-wrap: anywhere; }
 td.pts { font-weight: 700; font-size: 18px; }
 tr.me td { background: var(--soft); }
-tr.me td.name::after { content: " (tu)"; font-weight: 400; color: var(--color-tone-2); }
 
 .chart-box {
   position: relative;
@@ -589,7 +594,10 @@ main a:not(.button) { color: var(--color-tone-1); }
 select.period {
   appearance: none;
   -webkit-appearance: none;
-  padding: 4px 30px 4px 12px;
+  min-width: 220px;
+  padding: 4px 30px;
+  text-align: center;
+  text-align-last: center;
   font: inherit;
   font-size: 15px;
   font-weight: 600;
@@ -646,15 +654,16 @@ select.period {
 .segmented.small button { flex: 1; height: 30px; font-size: 13px; }
 
 /* Tables that scroll sideways, with player names kept in view */
-.scroll-x { overflow-x: auto; margin: 0 -14px; padding: 0 14px; }
+.scroll-x { overflow-x: auto; }
 table.standings th, table.standings td { white-space: nowrap; }
+/* Medal and name stay in place while the other columns scroll under them */
 table.standings th:nth-child(-n + 2), table.standings td:nth-child(-n + 2) {
   position: sticky;
   z-index: 1;
   background: var(--color-tone-7);
 }
-table.standings th:nth-child(1), table.standings td:nth-child(1) { left: 0; }
-table.standings th:nth-child(2), table.standings td:nth-child(2) { left: 28px; }
+table.standings th:nth-child(1), table.standings td:nth-child(1) { left: 0; width: 34px; min-width: 34px; max-width: 34px; }
+table.standings th:nth-child(2), table.standings td:nth-child(2) { left: 34px; box-shadow: 6px 0 6px -6px rgba(0, 0, 0, 0.25); }
 table.standings tr.me td:nth-child(-n + 2) { background: color-mix(in srgb, var(--color-correct) 12%, var(--color-tone-7)); }
 table.standings th { white-space: normal; min-width: 52px; vertical-align: bottom; }
 
@@ -666,17 +675,25 @@ table.results th, table.results td {
   border-bottom: 1px solid var(--color-tone-4);
 }
 table.results th[scope="row"] {
-  position: sticky;
-  left: 0;
-  z-index: 1;
   text-align: left;
   font-weight: 600;
-  background: var(--color-tone-7);
 }
 table.results .is-today { color: var(--color-correct); }
 table.results td { font-weight: 700; }
-table.results td.best { color: #fff; background: var(--color-correct); }
-table.results td.worst { color: #fff; background: var(--color-danger); }
+table.results td.best { color: var(--best-text); background: var(--best-bg); }
+table.results td.worst { color: var(--worst-text); background: var(--worst-bg); }
+/* Player columns all the same width */
+table.results th.names { width: 64px; min-width: 64px; max-width: 64px; }
+table.results th.names .player { display: block; overflow: hidden; text-overflow: ellipsis; }
+table.results:not(.flipped) td { width: 64px; min-width: 64px; max-width: 64px; }
+table.results.flipped th.names { width: 84px; min-width: 84px; max-width: 84px; }
+table.results.flipped td, table.results.flipped thead th:not(.corner) { min-width: 44px; }
+table.results th.label { text-align: left; font-weight: 600; text-transform: capitalize; }
+table.results th.label.first { position: sticky; left: 0; z-index: 1; background: var(--color-tone-7); }
+table.results.flipped th.names, table.results.flipped .corner { position: sticky; left: 0; z-index: 1; background: var(--color-tone-7); text-align: left; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip[aria-pressed="false"] { color: var(--color-tone-2); background: var(--color-tone-5); }
+.chip[aria-pressed="true"] { color: #fff; background: var(--color-correct); }
 
 /* Distribuzione: each player folds */
 details.dist > summary {
@@ -693,3 +710,22 @@ details.dist > summary::before {
   transition: transform 0.15s;
 }
 details.dist[open] > summary::before { transform: rotate(90deg); }
+
+/* Every module folds from its title */
+.module-title {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: none;
+}
+.module-title h2 { flex: none; }
+.module-title .chevron { color: var(--color-tone-3); transition: transform 0.15s; }
+.module.folded .module-title .chevron { transform: rotate(-90deg); }
+.module.folded { padding-bottom: 12px; }
+.module.folded .module-head { margin-bottom: 0; }

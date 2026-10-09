@@ -17,6 +17,8 @@ const state = {
   resultsFlipped: read("parle-results-flipped") === "1", // Risultati: players as rows
   chartMode: "total", // Grafico: "total" or "gap" (distance from the leader)
   distOpen: null, // Distribuzione: ids of the players shown open (null: only me)
+  resultsCols: readJSON("parle-results-cols", { day: true, word: true, wholeMonth: true }), // Risultati options
+  folded: new Set(readJSON("parle-folded", [])), // modules shown closed
   data: {}, // per group: { members, results }
   pendingJoin: null,
   pendingFrom: null, // id of the member who shared the invite link
@@ -88,6 +90,14 @@ function store(key, value) {
   try {
     value == null ? localStorage.removeItem(key) : localStorage.setItem(key, value);
   } catch {}
+}
+
+function readJSON(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function read(key) {
@@ -801,10 +811,7 @@ function renderGroup() {
     .map((id) => {
       const built = builders[id]();
       if (!built) return "";
-      return `<section class="module" data-module="${id}">
-          <div class="module-head">${handle}<h2>${MODULES[id]}</h2>${built.controls || ""}</div>
-          <div class="module-body">${built.body}</div>
-        </section>`;
+      return moduleFrame(id, MODULES[id], built, handle);
     })
     .join("");
 
@@ -813,13 +820,26 @@ function renderGroup() {
       <select class="period" aria-label="Periodo">${options.join("")}</select>
     </div>
     <div id="modules">${modules}</div>
-    <section class="module fixed">
-      <div class="module-head"><h2>Gruppo</h2></div>
-      <div class="module-body">${manageSection(group, data)}</div>
-    </section>`);
+    ${moduleFrame("group", "Gruppo", { body: manageSection(group, data) }, "", "fixed")}`);
 
   enableModuleDrag();
   if (stats.anyPlayed) drawChart(stats);
+}
+
+// A module card: handle (if movable), title that folds the whole module, its own controls.
+function moduleFrame(id, title, built, handle, extraClass = "") {
+  const folded = state.folded.has(id);
+  return `<section class="module ${extraClass}${folded ? " folded" : ""}" data-module="${id}">
+      <div class="module-head">
+        ${handle}
+        <button class="module-title" data-action="fold" data-id="${id}" aria-expanded="${!folded}">
+          <h2>${title}</h2>
+          <svg class="chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+        </button>
+        ${folded ? "" : built.controls || ""}
+      </div>
+      ${folded ? "" : `<div class="module-body">${built.body}</div>`}
+    </section>`;
 }
 
 function enableModuleDrag() {
@@ -846,7 +866,7 @@ function standingsModule(stats) {
   const dash = (v) => (v == null ? "-" : v);
   const body = `<div class="scroll-x"><table class="standings">
       <thead><tr>
-        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Vinte</th>
+        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Media + dev. std</th><th>Vinte</th>
         <th>Giocate</th><th>Miglior risultato</th><th>Peggiore risultato</th>
         ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<th>Ricorrenze ${k}</th>`).join("")}
       </tr></thead>
@@ -858,6 +878,7 @@ function standingsModule(stats) {
             <td class="pts">${s.points}</td>
             <td>${s.gap == null ? "-" : `+${s.gap}`}</td>
             <td>${s.played || s.missed ? decimals.format(s.mean) : "-"}</td>
+            <td>${s.played || s.missed ? decimals.format(s.mean + s.sd) : "-"}</td>
             <td>${s.wins}</td>
             <td>${s.played}</td>
             <td>${dash(s.best)}</td>
@@ -867,22 +888,26 @@ function standingsModule(stats) {
         )
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">Vince chi ha <strong>meno punti</strong>: parola indovinata in N tentativi = N punti, X/6 e giorno saltato = 7. A parità di punti passa avanti chi ha la media più la deviazione standard più bassa, cioè chi è stato più costante. La parola di oggi conta come saltata solo da domani. Scorri la tabella per vedere le altre colonne.</p>`;
+    <p class="muted small">X/6 e giorno saltato valgono 7 punti. Vince chi ha meno punti; a parità di punti la classifica usa il valore <strong>media + deviazione standard</strong> (più basso è meglio), così non ci sono pari merito.</p>`;
   return { body };
 }
 
+const DAY_FMT = new Intl.DateTimeFormat("it", { weekday: "short", day: "numeric", timeZone: "UTC" });
+
 function resultsModule(stats) {
   const me = state.session.user.id;
+  const opts = state.resultsCols;
   const players = [...stats.standings].sort((a, b) => (a.id === me ? -1 : b.id === me ? 1 : 0));
   const iPlayedToday = players.find((p) => p.id === me)?.results.has(stats.today);
   const days = [];
-  for (let d = stats.first; d <= stats.last; d++) days.push(d);
+  const lastShown = opts.wholeMonth ? stats.last : Math.min(stats.last, stats.today);
+  for (let d = stats.first; d <= lastShown; d++) days.push(d);
 
   // What a cell shows: tries, X, - (skipped), ✓ (today, hidden until I play), or nothing (not yet).
   const cell = (p, d) => {
     const r = p.results.get(d);
     if (r) {
-      if (d === stats.today && !iPlayedToday && p.id !== me) return { text: "✓", hidden: true };
+      if (d === stats.today && !iPlayedToday && p.id !== me) return { text: "✓" };
       return { text: r.won ? String(r.num_guesses) : "X", value: points(r) };
     }
     if (d <= stats.closedUntil) return { text: "-", value: MISSED_DAY_POINTS };
@@ -900,22 +925,32 @@ function resultsModule(stats) {
     return cells;
   });
   const td = (c) => `<td class="${c.mark || ""}">${c.text}</td>`;
-  const dayLabel = (d) => `<th scope="row" class="${d === stats.today ? "is-today" : ""}">#${d}</th>`;
-  const name = (p) => `${esc(p.name)}${p.id === me ? " (tu)" : ""}`;
+  const today = (d) => (d === stats.today ? "is-today" : "");
+  // Day and word labels, as chosen with the buttons.
+  const labels = [
+    opts.day && { title: "Giorno", text: (d) => DAY_FMT.format(dayDate(d)) },
+    opts.word && { title: "Parola", text: (d) => `#${d}` },
+  ].filter(Boolean);
+  const name = (p) => `<span class="player">${esc(p.name)}</span>`;
 
   let table;
   if (state.resultsFlipped) {
-    table = `<thead><tr><th></th>${days.map((d) => `<th class="${d === stats.today ? "is-today" : ""}">#${d}</th>`).join("")}</tr></thead>
-      <tbody>${players.map((p, i) => `<tr><th scope="row">${name(p)}</th>${grid.map((cells) => td(cells[i])).join("")}</tr>`).join("")}</tbody>`;
+    table = `<thead>${labels
+      .map((l, i) => `<tr><th class="corner"></th>${days.map((d) => `<th class="${today(d)}">${l.text(d)}</th>`).join("")}</tr>`)
+      .join("")}</thead>
+      <tbody>${players.map((p, i) => `<tr><th scope="row" class="names">${name(p)}</th>${grid.map((cells) => td(cells[i])).join("")}</tr>`).join("")}</tbody>`;
   } else {
-    table = `<thead><tr><th>Parola</th>${players.map((p) => `<th>${name(p)}</th>`).join("")}</tr></thead>
-      <tbody>${days.map((d, j) => `<tr>${dayLabel(d)}${grid[j].map(td).join("")}</tr>`).join("")}</tbody>`;
+    table = `<thead><tr>${labels.map((l) => `<th class="label">${l.title}</th>`).join("")}${players.map((p) => `<th class="names">${name(p)}</th>`).join("")}</tr></thead>
+      <tbody>${days
+        .map((d, j) => `<tr>${labels.map((l, i) => `<th scope="row" class="label ${i === 0 ? "first" : ""} ${today(d)}">${l.text(d)}</th>`).join("")}${grid[j].map(td).join("")}</tr>`)
+        .join("")}</tbody>`;
   }
+  const option = (key, label) => `<button class="chip" data-action="results-col" data-key="${key}" aria-pressed="${!!opts[key]}">${label}</button>`;
   const controls = `<button class="chip" data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">⇄ Ruota</button>`;
   return {
     controls,
-    body: `<div class="scroll-x results-wrap"><table class="results">${table}</table></div>
-      <p class="muted small">In verde il miglior risultato del giorno, in rosso il peggiore. X = non indovinata, - = saltata.</p>`,
+    body: `<div class="chips">${option("day", "Giorno")}${option("word", "Numero parola")}${option("wholeMonth", "Tutto il mese")}</div>
+      <div class="scroll-x"><table class="results${state.resultsFlipped ? " flipped" : ""}">${table}</table></div>`,
   };
 }
 
@@ -944,8 +979,7 @@ function todayModule(data, stats) {
     })
     .join("");
   return {
-    body: `<ul class="today">${items}</ul>
-      ${iPlayed ? "" : `<p class="muted small">Gioca la parola di oggi per vedere come è andata agli altri. <a href="../">Vai al gioco</a></p>`}`,
+    body: `<ul class="today">${items}</ul>`,
   };
 }
 
@@ -1116,6 +1150,21 @@ const actions = {
   "flip-results": () => {
     state.resultsFlipped = !state.resultsFlipped;
     store("parle-results-flipped", state.resultsFlipped ? "1" : null);
+    renderGroup();
+  },
+  "results-col": (el) => {
+    const key = el.dataset.key;
+    const cols = { ...state.resultsCols, [key]: !state.resultsCols[key] };
+    // Keep at least one of the two label columns.
+    if (!cols.day && !cols.word) cols[key === "day" ? "word" : "day"] = true;
+    state.resultsCols = cols;
+    store("parle-results-cols", JSON.stringify(cols));
+    renderGroup();
+  },
+  fold: (el) => {
+    const id = el.dataset.id;
+    state.folded.has(id) ? state.folded.delete(id) : state.folded.add(id);
+    store("parle-folded", JSON.stringify([...state.folded]));
     renderGroup();
   },
   "chart-mode": (el) => {
