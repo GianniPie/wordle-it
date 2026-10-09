@@ -90,6 +90,7 @@ button.icon {
   border: 1px solid var(--color-tone-4);
   border-radius: 0 0 8px 8px;
   box-shadow: 0 4px 23px 0 rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 #menu[hidden] { display: none; }
 #menu .item {
@@ -102,17 +103,21 @@ button.icon {
   color: var(--color-tone-1);
   text-decoration: none;
 }
-#menu .item:hover { background-color: var(--color-tone-6); }
+#menu .item:hover,
+#menu .item:active {
+  --color-tone-3: #fff;
+  color: #fff;
+  background-color: var(--color-correct);
+}
 #menu .item svg { flex: none; }
 #menu .item.sub {
   padding: 8px 16px 8px 52px;
   font-size: 15px;
   color: var(--color-tone-2);
 }
-#menu .item[aria-current="page"] {
-  font-weight: 700;
-  color: var(--color-tone-1);
-}
+#menu .item[aria-current="page"] { font-weight: 700; }
+#menu .item.sub[aria-current="page"] { color: var(--color-tone-1); }
+#menu .item.sub:hover, #menu .item.sub:active { color: #fff; }
 
 main {
   max-width: var(--game-max-width);
