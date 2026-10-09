@@ -155,12 +155,13 @@ const SUPABASE_KEY = "sb_publishable_-LLCVKGqP3hRaxXyrNoq5w_YUWu_QZs";
 
 // Fetched once per day and kept on the device, so the end-of-game dialog shows it at once.
 const definitions = {};
+const DEFINITION_VERSION = 2;
 function loadDefinition(day) {
   if (definitions[day]) return definitions[day];
   try {
     const kept = JSON.parse(read("parle-definition") || "null");
-    // A copy kept before the Treccani address existed is asked again.
-    if (kept?.day === day && kept.data?.treccani_url) return (definitions[day] = Promise.resolve(kept.data));
+    // A copy kept by an older version of the app (v changes with what the server sends) is asked again.
+    if (kept?.day === day && kept.v === DEFINITION_VERSION && kept.data) return (definitions[day] = Promise.resolve(kept.data));
   } catch {}
   definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url,treccani_url`, {
     headers: { apikey: SUPABASE_KEY },
@@ -169,7 +170,7 @@ function loadDefinition(day) {
     .then(([data]) => {
       if (data) {
         try {
-          localStorage.setItem("parle-definition", JSON.stringify({ day, data }));
+          localStorage.setItem("parle-definition", JSON.stringify({ day, v: DEFINITION_VERSION, data }));
         } catch {}
       } else delete definitions[day]; // not ready yet: ask again next time
       return data || null;
