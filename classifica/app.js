@@ -179,11 +179,10 @@ async function renderLogin(sentTo) {
     return;
   }
   $app.innerHTML = `${invite}
-    <h2>Sfida i tuoi amici</h2>
-    <p>Crea un gruppo, invita gli amici con un link e ogni giorno il tuo risultato di Par🇮🇹le finisce in classifica. A fine mese c'è un vincitore.</p>
-    <p class="muted small">Punti: indovinata al 1° tentativo 6 punti, al 2° 5 punti, ... al 6° 1 punto. Non indovinata o non giocata: 0.</p>
+    <h2>Accedi al tuo account</h2>
+    <p>Con un account i tuoi risultati di Par🇮🇹le entrano nella classifica dei gruppi di amici. Se ce l'hai già, usa la stessa email per ritrovare tutto su questo dispositivo.</p>
     <div class="card">
-      <p style="margin-top:0"><strong>Entra con la tua email</strong><br><span class="muted small">Ti mandiamo un codice, niente password.</span></p>
+      <p style="margin-top:0"><strong>La tua email</strong><br><span class="muted small">Ti mandiamo un codice da scrivere qui, niente password.</span></p>
       <form class="inline" data-form="login">
         <input type="email" name="email" placeholder="nome@email.it" autocomplete="email" required />
         <button class="primary" type="submit">Invia</button>
@@ -363,6 +362,7 @@ function createForm() {
         <button class="primary" type="submit">Crea</button>
       </form>
       <p class="error small" data-error hidden></p>
+      <button class="link" data-action="cancel-create">Annulla</button>
     </div>`;
 }
 
@@ -378,8 +378,12 @@ function renderNoGroups() {
   state.creating = false;
   if (state.chart) state.chart.destroy(), (state.chart = null);
   $app.innerHTML = `<h2>Ciao ${esc(state.profile.display_name)}!</h2>
-    <p>Non sei ancora in nessun gruppo. Creane uno e invita gli amici, oppure chiedi a un amico il suo link di invito.</p>
-    ${createForm()}
+    <p>Non sei ancora in nessun gruppo.</p>
+    <div class="card">
+      <p style="margin-top:0"><strong>Entrare nel gruppo di un amico</strong><br><span class="muted small">Apri il link di invito che ti ha mandato.</span></p>
+      <p style="margin-bottom:0"><strong>Creare un gruppo tuo</strong><br><span class="muted small">Poi invita gli amici con un link.</span></p>
+      <p style="margin-bottom:0"><button class="secondary" data-action="new-group">Crea un gruppo</button></p>
+    </div>
     ${profileCard()}`;
 }
 
@@ -476,7 +480,7 @@ function renderGroup() {
         )
         .join("")}</tbody>
     </table>
-    <p class="muted small">Media = tentativi medi per le parole indovinate.</p>`;
+    <p class="muted small">Punti: parola indovinata al 1° tentativo 6, al 2° 5, ... al 6° 1. Non indovinata o non giocata 0. Media = tentativi medi per le parole indovinate.</p>`;
 
   const anyPlayed = stats.standings.some((s) => s.played);
 
@@ -686,8 +690,13 @@ const actions = {
   },
   "new-group": () => {
     state.creating = true;
-    renderShell(createForm());
+    if (state.groups.length) renderShell(createForm());
+    else $app.innerHTML = `<h2>Ciao ${esc(state.profile.display_name)}!</h2>${createForm()}`;
     $app.querySelector("input").focus();
+  },
+  "cancel-create": () => {
+    state.creating = false;
+    state.groupId ? loadGroup() : renderNoGroups();
   },
   month: (el) => {
     state.month += Number(el.dataset.step);
