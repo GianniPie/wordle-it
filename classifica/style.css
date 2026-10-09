@@ -45,33 +45,72 @@ html, body {
 }
 body { min-height: 100vh; }
 
+/* Header and menu: same look as the game's. */
 header {
   position: sticky;
   top: 0;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: 48px 1fr 48px;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   height: 50px;
   max-width: var(--game-max-width);
   margin: 0 auto;
+  color: var(--color-tone-1);
   background: var(--color-tone-7);
   border-bottom: 1px solid var(--color-tone-4);
 }
-header h1 {
-  margin: 0;
-  text-align: center;
-  font-size: 24px;
+header .menu-slot { width: 40px; }
+header .title {
   font-weight: 700;
-  letter-spacing: 0.15rem;
+  font-size: 36px;
+  letter-spacing: 0.2rem;
   text-transform: uppercase;
+  text-align: center;
+  color: var(--color-tone-1);
+  text-decoration: none;
 }
-header .back {
+button.icon {
   display: flex;
-  justify-content: center;
+  padding: 1px 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+#menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 6;
+  min-width: 220px;
+  padding: 8px 0;
+  background-color: var(--color-tone-7);
+  border: 1px solid var(--color-tone-4);
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 23px 0 rgba(0, 0, 0, 0.2);
+}
+#menu[hidden] { display: none; }
+#menu .item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  color: var(--color-tone-1);
+  text-decoration: none;
+}
+#menu .item:hover { background-color: var(--color-tone-6); }
+#menu .item svg { flex: none; }
+#menu .item.sub {
+  padding: 8px 16px 8px 52px;
+  font-size: 15px;
+  color: var(--color-tone-2);
+}
+#menu .item[aria-current="page"] {
+  font-weight: 700;
   color: var(--color-tone-1);
 }
-header #logout { justify-self: end; padding-right: 12px; }
 
 main {
   max-width: var(--game-max-width);
@@ -124,7 +163,8 @@ button {
   cursor: pointer;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0.2);
 }
-button.primary {
+button.primary,
+a.button.primary {
   height: 44px;
   padding: 0 16px;
   font-weight: 700;
@@ -134,7 +174,8 @@ button.primary {
   border: none;
   border-radius: 4px;
 }
-button.secondary {
+button.secondary,
+a.button.secondary {
   height: 36px;
   padding: 0 12px;
   font-weight: 700;
@@ -152,30 +193,6 @@ button.link {
 }
 button.danger { color: var(--color-danger); }
 button:disabled { opacity: 0.5; cursor: default; }
-
-/* Group picker */
-.tabs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: none;
-}
-.tabs button {
-  flex: none;
-  height: 34px;
-  padding: 0 14px;
-  font-weight: 700;
-  color: var(--color-tone-1);
-  background: var(--color-tone-5);
-  border: 1px solid var(--color-tone-4);
-  border-radius: 17px;
-}
-.tabs button[aria-pressed="true"] {
-  color: #fff;
-  background: var(--color-correct);
-  border-color: var(--color-correct);
-}
 
 /* Month switcher */
 .month {
@@ -327,4 +344,17 @@ tr.me td.name::after { content: " (tu)"; font-weight: 400; color: var(--color-to
   background: var(--color-tone-1);
   border-radius: 4px;
   pointer-events: none;
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+.group-title {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }

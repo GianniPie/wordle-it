@@ -20,11 +20,14 @@
   </head>
   <body>
     <header>
-      <a class="back" href="../" title="Torna al gioco" aria-label="Torna al gioco">
-        <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
-      </a>
-      <h1>Classifica</h1>
-      <button id="logout" class="link" hidden>Esci</button>
+      <div class="menu-slot">
+        <button id="menu-button" class="icon" aria-label="Menu" aria-expanded="false" aria-controls="menu">
+          <svg viewBox="0 0 24 24" width="24" height="24"><path fill="var(--color-tone-3)" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+      </div>
+      <a class="title" href="../">PAR🇮🇹LE</a>
+      <div class="menu-slot"></div>
+      <nav id="menu" hidden></nav>
     </header>
 
     <main id="app">

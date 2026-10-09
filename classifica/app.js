@@ -1,7 +1,8 @@
 import { sb, dayNumber, dayDate, points, syncToday } from "./db.js";
 
 const $app = document.getElementById("app");
-const $logout = document.getElementById("logout");
+const $menu = document.getElementById("menu");
+const $menuButton = document.getElementById("menu-button");
 
 const MONTH_FMT = new Intl.DateTimeFormat("it", { month: "long", year: "numeric", timeZone: "UTC" });
 const MONTH_NAME = new Intl.DateTimeFormat("it", { month: "long", timeZone: "UTC" });
@@ -16,8 +17,8 @@ const state = {
   data: {}, // per group: { members, results }
   pendingJoin: null,
   pendingFrom: null, // id of the member who shared the invite link
-  creating: false,
   chart: null,
+  afterLogin: false, // just logged in from the Account page: show the leaderboards
 };
 
 // ---------- helpers ----------
@@ -87,6 +88,21 @@ function redirectUrl() {
   return `${location.origin}${location.pathname}${join}`;
 }
 
+// Which screen to show, from the address: ?account, ?nuovo, ?gruppo=<id>, or the leaderboards.
+function currentView() {
+  const params = new URLSearchParams(location.search);
+  if (params.has("account")) return { name: "account" };
+  if (params.has("nuovo")) return { name: "new-group" };
+  return { name: "groups", groupId: params.get("gruppo") };
+}
+
+function navigate(url, replace = false) {
+  history[replace ? "replaceState" : "pushState"](null, "", url);
+  closeMenu();
+  window.scrollTo(0, 0);
+  route();
+}
+
 function currentGroup() {
   return state.groups.find((g) => g.id === state.groupId);
 }
@@ -121,29 +137,115 @@ async function init() {
     state.session = session;
     if (event === "SIGNED_OUT" || (!wasIn && session)) route();
   });
-  // Remove the login tokens and invite code from the address bar.
-  if (location.hash.includes("access_token") || join) history.replaceState(null, "", location.pathname);
+  // Remove the invite code from the address bar.
+  if (join) history.replaceState(null, "", location.pathname);
+  window.addEventListener("popstate", route);
   route();
 }
 
 async function route() {
-  $logout.hidden = !state.session;
-  if (!state.session) return renderLogin(read("parle-login-email"));
+  let view = currentView();
+  if (!state.session) {
+    state.groups = [];
+    store("parle-groups", null);
+    renderMenu();
+    if (view.name === "account" || state.pendingJoin) return renderLogin(read("parle-login-email"));
+    return renderNeedLogin();
+  }
 
-  const { data: profile, error } = await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle();
-  if (error) return renderError(error);
-  state.profile = profile;
-  if (!profile) return renderName();
-
-  syncToday().then((saved) => {
-    if (saved) {
-      delete state.data[state.groupId];
-      if (!state.pendingJoin && state.groups.length) loadGroup();
+  if (!state.profile || state.profile.id !== state.session.user.id) {
+    const { data: profile, error } = await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle();
+    if (error) return renderError(error);
+    state.profile = profile;
+    if (profile) {
+      syncToday().then((saved) => {
+        if (saved) {
+          state.data = {};
+          if (currentView().name === "groups" && state.groups.length) loadGroup();
+        }
+      });
     }
-  });
+  }
+  if (!state.profile) return renderName();
 
-  if (state.pendingJoin) return renderJoin();
+  if (state.afterLogin) {
+    state.afterLogin = false;
+    if (view.name === "account") {
+      history.replaceState(null, "", location.pathname);
+      view = currentView();
+    }
+  }
+
   await loadGroups();
+  if (state.pendingJoin) return renderJoin();
+  if (view.name === "account") return renderAccount();
+  if (view.name === "new-group") return renderCreate();
+  if (view.groupId && state.groups.some((g) => g.id === view.groupId)) state.groupId = view.groupId;
+  if (!state.groupId) return renderNoGroups();
+  state.month = monthOfDate(new Date());
+  loadGroup();
+}
+
+// ---------- menu ----------
+
+function renderMenu() {
+  const view = currentView();
+  const current = (on) => (on ? ` aria-current="page"` : "");
+  const icon = (d) => `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="var(--color-tone-3)" d="${d}"/></svg>`;
+  const groups = state.session
+    ? state.groups
+        .map((g) => `<a class="item sub" data-nav href="?gruppo=${encodeURIComponent(g.id)}"${current(view.name === "groups" && g.id === state.groupId)}>${esc(g.name)}</a>`)
+        .join("") + `<a class="item sub" data-nav href="?nuovo"${current(view.name === "new-group")}>+ Nuovo gruppo</a>`
+    : "";
+  $menu.innerHTML = `
+    <a class="item" href="../">${icon("M8 5v14l11-7z")}Gioca</a>
+    <a class="item" href="../#come-giocare">${icon("M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z")}Come giocare</a>
+    <a class="item" data-nav href="./">${icon("M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z")}Classifiche</a>
+    ${groups}
+    <a class="item" data-nav href="?account"${current(view.name === "account")}>${icon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z")}Account</a>
+    <a class="item" href="../#impostazioni">${icon("M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z")}Impostazioni</a>`;
+}
+
+function closeMenu() {
+  $menu.hidden = true;
+  $menuButton.setAttribute("aria-expanded", "false");
+}
+
+$menuButton.addEventListener("click", (e) => {
+  e.stopPropagation();
+  $menu.hidden = !$menu.hidden;
+  $menuButton.setAttribute("aria-expanded", String(!$menu.hidden));
+});
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a[data-nav]");
+  if (link) {
+    e.preventDefault();
+    navigate(link.getAttribute("href"));
+  } else if (!$menu.hidden && !e.target.closest("#menu")) {
+    closeMenu();
+  }
+});
+window.addEventListener("keydown", (e) => e.key === "Escape" && closeMenu());
+
+function renderNeedLogin() {
+  $app.innerHTML = `<h2>Classifiche</h2>
+    <p>Per vedere le classifiche dei tuoi gruppi e sfidare gli amici, accedi al tuo account.</p>
+    <p><a class="button primary" data-nav href="?account">Accedi</a></p>`;
+}
+
+function renderAccount() {
+  $app.innerHTML = `<h2>Il tuo account</h2>
+    <div class="card profile">
+      <span><strong>${esc(state.profile.display_name)}</strong><br><span class="muted small">${esc(state.session.user.email || "")}</span></span>
+      <button class="link" data-action="edit-name">Cambia nome</button>
+    </div>
+    <p class="muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
+    <div class="actions">
+      <button class="secondary" data-action="logout">Esci</button>
+    </div>
+    <h2>Eliminare l'account</h2>
+    <p class="muted small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
+    <button class="link danger" data-action="delete-account">Elimina il mio account</button>`;
 }
 
 function renderError(error) {
@@ -209,9 +311,13 @@ async function submitCode(form) {
   if (!email || !token) return;
   const button = form.querySelector("button");
   button.disabled = true;
+  state.afterLogin = true;
   const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
   button.disabled = false;
-  if (error) return showFormError(form, error);
+  if (error) {
+    state.afterLogin = false;
+    return showFormError(form, error);
+  }
   store("parle-login-email", null);
 }
 
@@ -252,6 +358,7 @@ async function submitName(form) {
     ? await sb.from("profiles").update({ display_name: name }).eq("id", row.id)
     : await sb.from("profiles").insert(row);
   if (error) return showFormError(form, error);
+  state.profile = { ...state.profile, id: row.id, display_name: name };
   state.data = {};
   route();
 }
@@ -264,7 +371,7 @@ async function renderJoin() {
   if (error || !group) {
     clearJoin();
     toast("Link di invito non valido o scaduto.", 3000);
-    return loadGroups();
+    return navigate("./", true);
   }
   const already = state.groups.some((g) => g.id === group.id);
   $app.innerHTML = `<div class="card center" style="margin-top:16px">
@@ -281,12 +388,10 @@ async function joinPending() {
   clearJoin();
   if (error) {
     toast(errorText(error), 3000);
-    return loadGroups();
+    return navigate("./", true);
   }
-  state.groupId = gid;
-  store("parle-group", gid);
   delete state.data[gid];
-  loadGroups();
+  navigate(`?gruppo=${gid}`, true);
 }
 
 // ---------- groups ----------
@@ -295,18 +400,20 @@ async function loadGroups() {
   const { data, error } = await sb.from("groups").select("*").order("created_at");
   if (error) return renderError(error);
   state.groups = data;
+  // The game page lists these in its menu.
+  store("parle-groups", JSON.stringify(data.map((g) => ({ id: g.id, name: g.name }))));
   if (!state.groups.some((g) => g.id === state.groupId)) {
     const saved = read("parle-group");
     state.groupId = state.groups.some((g) => g.id === saved) ? saved : state.groups[0]?.id ?? null;
   }
-  state.month = monthOfDate(new Date());
-  if (!state.groupId) return renderNoGroups();
-  loadGroup();
+  renderMenu();
 }
 
 async function loadGroup() {
   const group = currentGroup();
   if (!group) return renderNoGroups();
+  store("parle-group", group.id);
+  renderMenu();
   if (!state.data[group.id]) {
     renderShell(`<p class="muted center">Caricamento...</p>`);
     try {
@@ -347,13 +454,6 @@ async function fetchGroupData(group) {
   };
 }
 
-function groupTabs() {
-  const tabs = state.groups
-    .map((g) => `<button data-action="group" data-id="${g.id}" aria-pressed="${!state.creating && g.id === state.groupId}">${esc(g.name)}</button>`)
-    .join("");
-  return `<div class="tabs">${tabs}<button data-action="new-group" aria-pressed="${state.creating}">+ Nuovo gruppo</button></div>`;
-}
-
 function createForm() {
   return `<div class="card">
       <p style="margin-top:0"><strong>Nuovo gruppo</strong><br><span class="muted small">Poi condividi il link di invito con gli amici.</span></p>
@@ -371,20 +471,22 @@ function renderShell(body) {
     state.chart.destroy();
     state.chart = null;
   }
-  $app.innerHTML = groupTabs() + body;
+  $app.innerHTML = body;
 }
 
 function renderNoGroups() {
-  state.creating = false;
-  if (state.chart) state.chart.destroy(), (state.chart = null);
-  $app.innerHTML = `<h2>Ciao ${esc(state.profile.display_name)}!</h2>
-    <p>Non sei ancora in nessun gruppo.</p>
+  renderShell(`<h2>Classifiche</h2>
+    <p>Ciao ${esc(state.profile.display_name)}, non sei ancora in nessun gruppo.</p>
     <div class="card">
       <p style="margin-top:0"><strong>Entrare nel gruppo di un amico</strong><br><span class="muted small">Apri il link di invito che ti ha mandato.</span></p>
       <p style="margin-bottom:0"><strong>Creare un gruppo tuo</strong><br><span class="muted small">Poi invita gli amici con un link.</span></p>
-      <p style="margin-bottom:0"><button class="secondary" data-action="new-group">Crea un gruppo</button></p>
-    </div>
-    ${profileCard()}`;
+      <p style="margin-bottom:0"><a class="button secondary" data-nav href="?nuovo">Crea un gruppo</a></p>
+    </div>`);
+}
+
+function renderCreate() {
+  renderShell(`<h2>Nuovo gruppo</h2>${createForm()}`);
+  $app.querySelector("input").focus();
 }
 
 async function submitCreate(form) {
@@ -392,10 +494,7 @@ async function submitCreate(form) {
   if (!name) return;
   const { data, error } = await sb.rpc("create_group", { p_name: name });
   if (error) return showFormError(form, error);
-  state.creating = false;
-  state.groupId = data.id;
-  store("parle-group", data.id);
-  await loadGroups();
+  navigate(`?gruppo=${data.id}`, true);
   toast("Gruppo creato! Ora invita gli amici.", 2500);
 }
 
@@ -484,9 +583,9 @@ function renderGroup() {
 
   const anyPlayed = stats.standings.some((s) => s.played);
 
-  $app.innerHTML =
-    groupTabs() +
-    `<div class="month">
+  renderShell(
+    `<h1 class="group-title">${esc(group.name)}</h1>
+    <div class="month">
       <button data-action="month" data-step="-1" ${state.month <= firstMonth ? "disabled" : ""} aria-label="Mese precedente">‹</button>
       <strong>${monthLabel(state.month)}</strong>
       <button data-action="month" data-step="1" ${state.month >= thisMonth ? "disabled" : ""} aria-label="Mese successivo">›</button>
@@ -498,8 +597,7 @@ function renderGroup() {
     ${anyPlayed ? `<h2>Andamento dei punti</h2><div class="chart-box"><canvas id="chart"></canvas></div>` : ""}
     ${anyPlayed ? `<h2>Distribuzione dei tentativi</h2>${distributionSection(stats)}` : ""}
     ${hallOfFame(data, firstMonth, thisMonth)}
-    ${manageSection(group, data)}
-    ${profileCard()}`;
+    ${manageSection(group, data)}`);
 
   if (anyPlayed) drawChart(stats);
 }
@@ -634,15 +732,6 @@ function manageSection(group, data) {
     </div>`;
 }
 
-function profileCard() {
-  return `<h2>Il tuo profilo</h2>
-    <div class="card profile">
-      <span><strong>${esc(state.profile.display_name)}</strong><br><span class="muted small">${esc(state.session.user.email || "")}</span></span>
-      <button class="link" data-action="edit-name">Cambia nome</button>
-    </div>
-    <p class="actions"><button class="link danger" data-action="delete-account">Elimina il mio account</button></p>`;
-}
-
 // ---------- actions ----------
 
 async function shareInvite() {
@@ -666,7 +755,7 @@ async function shareInvite() {
 
 async function refreshGroup() {
   delete state.data[state.groupId];
-  await loadGroups();
+  await route();
 }
 
 const actions = {
@@ -679,24 +768,17 @@ const actions = {
   join: joinPending,
   "skip-join": () => {
     clearJoin();
-    loadGroups();
+    navigate("./", true);
   },
-  group: (el) => {
-    state.creating = false;
-    state.groupId = el.dataset.id;
-    store("parle-group", state.groupId);
-    state.month = monthOfDate(new Date());
-    loadGroup();
-  },
-  "new-group": () => {
-    state.creating = true;
-    if (state.groups.length) renderShell(createForm());
-    else $app.innerHTML = `<h2>Ciao ${esc(state.profile.display_name)}!</h2>${createForm()}`;
-    $app.querySelector("input").focus();
-  },
-  "cancel-create": () => {
-    state.creating = false;
-    state.groupId ? loadGroup() : renderNoGroups();
+  "cancel-create": () => navigate("./"),
+  logout: async () => {
+    await sb.auth.signOut();
+    state.data = {};
+    state.groups = [];
+    state.groupId = null;
+    state.profile = null;
+    store("parle-groups", null);
+    store("parle-group", null);
   },
   month: (el) => {
     state.month += Number(el.dataset.step);
@@ -709,13 +791,13 @@ const actions = {
     if (!name || name === group.name) return;
     const { error } = await sb.from("groups").update({ name: name.slice(0, 40) }).eq("id", group.id);
     if (error) return toast(errorText(error), 3000);
-    loadGroups();
+    route();
   },
   "new-code": async () => {
     if (!confirm("Il vecchio link di invito smetterà di funzionare. Continuare?")) return;
     const { error } = await sb.rpc("new_invite_code", { p_group: state.groupId });
     if (error) return toast(errorText(error), 3000);
-    await loadGroups();
+    await route();
     toast("Nuovo link creato");
   },
   remove: async (el) => {
@@ -729,7 +811,7 @@ const actions = {
     const { error } = await sb.from("group_members").delete().eq("group_id", state.groupId).eq("user_id", state.session.user.id);
     if (error) return toast(errorText(error), 3000);
     state.groupId = null;
-    loadGroups();
+    navigate("./", true);
   },
   "delete-group": async () => {
     const group = currentGroup();
@@ -737,7 +819,7 @@ const actions = {
     const { error } = await sb.from("groups").delete().eq("id", group.id);
     if (error) return toast(errorText(error), 3000);
     state.groupId = null;
-    loadGroups();
+    navigate("./", true);
   },
   "edit-name": () => {
     renderName();
@@ -753,7 +835,7 @@ const actions = {
     if (!ok) return;
     const { error } = await sb.rpc("delete_my_account");
     if (error) return toast(errorText(error), 3000);
-    ["parle-synced", "parle-group"].forEach((k) => store(k, null));
+    ["parle-synced", "parle-group", "parle-groups"].forEach((k) => store(k, null));
     state.data = {};
     state.groups = [];
     state.groupId = null;
@@ -773,12 +855,6 @@ $app.addEventListener("click", (e) => {
 $app.addEventListener("submit", (e) => {
   e.preventDefault();
   forms[e.target.dataset.form]?.(e.target);
-});
-
-$logout.addEventListener("click", async () => {
-  await sb.auth.signOut();
-  state.data = {};
-  state.groups = [];
 });
 
 init();
