@@ -1680,7 +1680,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               key: "updateTimer",
               value: function() {
                   var e = (new Date).getTime(),
-                      a = Math.floor(this.targetEpochMS - e),
+                      a = Math.max(0, Math.floor(this.targetEpochMS - e)),
                       s = Math.floor(a % 864e5 / qs),
                       t = Math.floor(a % qs / _s),
                       o = Math.floor(a % _s / 1e3),
