@@ -15,6 +15,7 @@ const state = {
   month: null, // months since year 0: year * 12 + month
   data: {}, // per group: { members, results }
   pendingJoin: null,
+  pendingFrom: null, // id of the member who shared the invite link
   creating: false,
   chart: null,
 };
@@ -67,7 +68,18 @@ function monthLabel(month, withYear = true) {
 }
 
 function inviteUrl(code) {
-  return `${location.origin}${location.pathname}?join=${encodeURIComponent(code)}`;
+  return `${location.origin}${location.pathname}?join=${encodeURIComponent(code)}&da=${state.session.user.id}`;
+}
+
+function invitePreview() {
+  return sb.rpc("group_preview", { p_code: state.pendingJoin, p_from: state.pendingFrom });
+}
+
+function clearJoin() {
+  store("parle-join", null);
+  store("parle-join-from", null);
+  state.pendingJoin = null;
+  state.pendingFrom = null;
 }
 
 function redirectUrl() {
@@ -91,8 +103,13 @@ function errorText(error) {
 async function init() {
   const params = new URLSearchParams(location.search);
   const join = params.get("join");
-  if (join) store("parle-join", join.toUpperCase());
+  if (join) {
+    store("parle-join", join.toUpperCase());
+    const from = params.get("da");
+    store("parle-join-from", /^[0-9a-f-]{36}$/i.test(from || "") ? from : null);
+  }
   state.pendingJoin = read("parle-join");
+  state.pendingFrom = read("parle-join-from");
 
   const { data, error } = await sb.auth.getSession();
   if (error) console.warn(error);
@@ -137,8 +154,8 @@ function renderError(error) {
 async function renderLogin(sentTo) {
   let invite = "";
   if (state.pendingJoin) {
-    const { data } = await sb.rpc("group_preview", { p_code: state.pendingJoin });
-    if (data?.[0]) invite = `<div class="banner">Sei stato invitato nel gruppo <strong>${esc(data[0].name)}</strong></div>`;
+    const { data } = await invitePreview();
+    if (data?.[0]) invite = `<div class="banner"><strong>${esc(data[0].inviter)}</strong> ti invita nel gruppo <strong>${esc(data[0].name)}</strong></div>`;
   }
   if (sentTo) {
     $app.innerHTML = `${invite}
@@ -168,7 +185,15 @@ async function submitLogin(form) {
   const email = form.email.value.trim();
   const button = form.querySelector("button");
   button.disabled = true;
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl() } });
+  // Puts the group and who invites into the login email (for new and existing accounts).
+  const { data: invite } = await sb.rpc("prepare_login", {
+    p_email: email,
+    p_code: state.pendingJoin,
+    p_from: state.pendingFrom,
+  });
+  const options = { emailRedirectTo: redirectUrl() };
+  if (invite) options.data = invite;
+  const { error } = await sb.auth.signInWithOtp({ email, options });
   button.disabled = false;
   if (error) return showFormError(form, error);
   renderLogin(email);
@@ -211,17 +236,16 @@ async function submitName(form) {
 // ---------- invitations ----------
 
 async function renderJoin() {
-  const { data, error } = await sb.rpc("group_preview", { p_code: state.pendingJoin });
+  const { data, error } = await invitePreview();
   const group = data?.[0];
   if (error || !group) {
-    store("parle-join", null);
-    state.pendingJoin = null;
+    clearJoin();
     toast("Link di invito non valido o scaduto.", 3000);
     return loadGroups();
   }
   const already = state.groups.some((g) => g.id === group.id);
   $app.innerHTML = `<div class="card center" style="margin-top:16px">
-      <p>Sei stato invitato nel gruppo</p>
+      <p><strong>${esc(group.inviter)}</strong> ti invita nel gruppo</p>
       <p style="font-size:24px;font-weight:700;margin:8px 0">${esc(group.name)}</p>
       <p class="muted small">${group.members} ${group.members == 1 ? "giocatore" : "giocatori"}</p>
       <p><button class="primary" data-action="join">${already ? "Apri il gruppo" : "Entra nel gruppo"}</button></p>
@@ -231,8 +255,7 @@ async function renderJoin() {
 
 async function joinPending() {
   const { data: gid, error } = await sb.rpc("join_group", { p_code: state.pendingJoin });
-  store("parle-join", null);
-  state.pendingJoin = null;
+  clearJoin();
   if (error) {
     toast(errorText(error), 3000);
     return loadGroups();
@@ -622,8 +645,7 @@ const actions = {
   "login-again": () => renderLogin(),
   join: joinPending,
   "skip-join": () => {
-    store("parle-join", null);
-    state.pendingJoin = null;
+    clearJoin();
     loadGroups();
   },
   group: (el) => {
