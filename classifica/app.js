@@ -1,4 +1,4 @@
-import { sb, dayNumber, dayDate, points, MISSED_DAY_POINTS, syncToday, flushPending } from "./db.js";
+import { sb, dayNumber, italianDayNumber, dayDate, points, MISSED_DAY_POINTS, syncToday, flushPending } from "./db.js";
 
 const $app = document.getElementById("app");
 const $menu = document.getElementById("menu");
@@ -1178,9 +1178,14 @@ function periodRange(group, period) {
 // and today only once played (it can still be played until midnight).
 function periodStats(data, first, last) {
   const today = dayNumber(new Date());
-  const closedUntil = Math.min(last, today - 1);
+  // A day enters the standings and the chart when every player has played it, or at Italian midnight
+  // (then a day not played counts 7): until then nobody's result of that day moves the ranking.
+  const italianToday = italianDayNumber();
+  const closedUntil = Math.min(last, italianToday - 1);
   const results = new Map(data.members.map((m) => [m.id, new Map()]));
   for (const r of data.results) if (r.day >= first && r.day <= last) results.get(r.user_id)?.set(r.day, r);
+  let countedUntil = closedUntil;
+  while (countedUntil < last && data.members.every((m) => results.get(m.id)?.has(countedUntil + 1))) countedUntil += 1;
 
   const rows = data.members.map((m) => {
     const mine = results.get(m.id);
@@ -1188,7 +1193,7 @@ function periodStats(data, first, last) {
     const counts = [0, 0, 0, 0, 0, 0, 0, 0]; // index = points, 1..7
     const dist = [0, 0, 0, 0, 0, 0, 0]; // 1..6 tries, then X/6
     let played = 0, wins = 0, guesses = 0, missed = 0;
-    for (let d = first; d <= Math.min(last, today); d++) {
+    for (let d = first; d <= countedUntil; d++) {
       const r = mine.get(d);
       let v;
       if (r) {
@@ -1229,7 +1234,7 @@ function periodStats(data, first, last) {
     s.rank = prev && prev.score === s.score ? prev.rank : i + 1;
     s.gap = prev ? s.points - prev.points : null;
   });
-  return { first, last, today, closedUntil, standings, anyPlayed: rows.some((r) => r.played) };
+  return { first, last, today, closedUntil, countedUntil, standings, anyPlayed: rows.some((r) => r.played) };
 }
 
 const decimals = new Intl.NumberFormat("it", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1366,7 +1371,7 @@ function standingsModule(stats) {
         )
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito.</p>`;
+    <p class="muted small">La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito. La partita di oggi entra in classifica quando l'hanno giocata tutti, o comunque a mezzanotte (ora italiana).</p>`;
   return { body };
 }
 
@@ -1455,7 +1460,7 @@ function todayModule(data, stats) {
       let text;
       if (!r) text = `<span class="muted">non ancora</span>`;
       else if (!iPlayed && m.id !== me) text = "✓ fatto";
-      else text = r.won ? `${r.num_guesses}/6 · ${points(r)} punti` : `X/6 · ${points(r)} punti`;
+      else text = r.won ? `indovinata in ${r.num_guesses}` : "non indovinata";
       return `<li><span>${esc(m.name)}</span><span>${text}</span></li>`;
     })
     .join("");
@@ -1493,7 +1498,7 @@ function drawChart(stats) {
   if (!window.Chart) return setTimeout(() => drawChart(stats), 100);
   const canvas = document.getElementById("chart");
   if (!canvas) return;
-  const end = Math.min(stats.last, stats.today);
+  const end = stats.countedUntil; // the same days as the standings
   const days = [];
   for (let d = stats.first; d <= end; d++) days.push(d);
   const data = state.data[state.groupId];

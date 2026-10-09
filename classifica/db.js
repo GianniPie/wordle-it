@@ -13,6 +13,13 @@ export function dayNumber(date) {
   return Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - FIRST_PUZZLE) / 864e5);
 }
 
+// Puzzle number of the day in progress in Italy: the group's days close at Italian midnight, the same
+// moment for every player whatever their time zone.
+export function italianDayNumber(date = new Date()) {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(date).split("-").map(Number);
+  return Math.floor((Date.UTC(y, m - 1, d) - FIRST_PUZZLE) / 864e5);
+}
+
 // Calendar date (UTC midnight) of a puzzle number.
 export function dayDate(day) {
   return new Date(FIRST_PUZZLE + day * 864e5);
