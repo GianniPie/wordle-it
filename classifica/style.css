@@ -23,7 +23,7 @@
   --radius: 12px;
   --best-bg: #f3ffe3;
   --best-text: #58a65c;
-  --worst-bg: #edc9c4;
+  --worst-bg: #f8dfe6;
   --worst-text: #bb271a;
   --game-max-width: 500px;
   font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
@@ -686,13 +686,30 @@ table.results.flipped td, table.results.flipped thead th:not(.corner) { min-widt
 table.results th.label { text-align: left; font-weight: 600; text-transform: capitalize; }
 table.results th.label.first { position: sticky; left: 0; z-index: 1; background: var(--color-tone-7); }
 table.results.flipped th.names, table.results.flipped .corner { position: sticky; left: 0; z-index: 1; background: var(--color-tone-7); text-align: left; }
-/* Risultati options: on/off buttons in one group, like the theme picker */
-.segmented.toggles button[aria-pressed="true"] {
+/* Risultati options: separate on/off buttons, green outline when off, filled green when on */
+.toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.toggles button {
+  flex: 1 1 auto;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--color-correct);
+  background: transparent;
+  border: 1.5px solid var(--color-correct);
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.toggles button[aria-pressed="true"] {
   color: #fff;
   background: var(--color-correct);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
-.segmented.toggles button { padding: 0 4px; white-space: nowrap; font-size: 12.5px; }
 
 /* Distribuzione: each player folds */
 details.dist > summary {
