@@ -1135,12 +1135,12 @@ function renderNoGroups() {
   renderShell(`<h1 class="page-title">Classifiche</h1>
     <p class="page-intro">Ciao ${esc(state.profile.display_name)}, non sei ancora in nessun gruppo.</p>
     <div class="card">
-      <h2 class="card-title">Entra nel gruppo di un amico</h2>
-      <p class="card-text muted small">Apri il link di invito che ti ha mandato.</p>
+      <h2 class="card-title">Hai ricevuto un invito?</h2>
+      <p class="card-text muted small">Apri il link che ti ha mandato il tuo amico: ti porta direttamente nel suo gruppo.</p>
     </div>
     <div class="card">
-      <h2 class="card-title">Crea un gruppo tuo</h2>
-      <p class="card-text muted small">Poi invita gli amici con un link.</p>
+      <h2 class="card-title">Vuoi sfidare i tuoi amici?</h2>
+      <p class="card-text muted small">Crea un gruppo, poi mandagli il link di invito.</p>
       <div class="card-actions"><a class="button primary" data-nav href="?nuovo">Crea un gruppo</a></div>
     </div>`);
 }
