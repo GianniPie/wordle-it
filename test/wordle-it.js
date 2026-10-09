@@ -1434,6 +1434,13 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   this.shadowRoot.appendChild(cs.content.cloneNode(!0));
                   var game = this.gameApp;
                   game && (this.shadowRoot.getElementById("result-line").textContent = game.gameStatus === Za ? "Indovinata in ".concat(game.rowIndex, 1 === game.rowIndex ? " tentativo" : " tentativi") : game.gameStatus === es ? "Non indovinata: la parola era ".concat(game.solution.toUpperCase()) : "");
+                  // Without groups (or without an account) there is no leaderboard yet: go to the player's statistics.
+                  var hasGroups = !1;
+                  try {
+                      hasGroups = !!window.localStorage.getItem("sb-nxybifpygctncflcwbfa-auth-token") && JSON.parse(window.localStorage.getItem("parle-groups") || "[]").length > 0
+                  } catch (x) {}
+                  var toLeaderboard = this.shadowRoot.getElementById("to-leaderboard");
+                  hasGroups || (toLeaderboard.href = "classifica/?statistiche", toLeaderboard.textContent = "Le mie statistiche");
                   for (var a = this.shadowRoot.getElementById("statistics"), s = this.shadowRoot.getElementById("guess-distribution"), t = Math.max.apply(Math, g(Object.values(this.stats.guesses))), o = 1; o < Object.keys(this.stats.guesses).length; o++) {
                       var r = o,
                           n = this.stats.guesses[o],
