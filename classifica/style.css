@@ -244,7 +244,8 @@ button.primary,
 a.button.primary {
   color: #fff;
   background: var(--color-correct);
-  border: none;
+  /* same 2px border as the outlined buttons, so paired buttons have the same size */
+  border: 2px solid var(--color-correct);
   box-shadow: 0 2px 0 var(--color-correct-dark);
 }
 button.secondary,
@@ -256,14 +257,14 @@ a.button.secondary {
 button.danger-fill {
   color: #fff;
   background: var(--color-danger);
-  border: none;
+  border: 2px solid var(--color-danger);
 }
 button.danger-outline {
   color: var(--color-danger);
   background: transparent;
   border: 2px solid var(--color-danger);
 }
-button.primary:hover, a.button.primary:hover { background: var(--color-correct-dark); }
+button.primary:hover, a.button.primary:hover { background: var(--color-correct-dark); border-color: var(--color-correct-dark); }
 button.secondary:hover, a.button.secondary:hover { background: var(--soft); }
 button.danger-outline:hover { color: #fff; background: var(--color-danger); }
 button.primary:active, a.button.primary:active, button.secondary:active, a.button.secondary:active,
@@ -390,14 +391,9 @@ tr.me td { background: var(--soft); }
   flex-direction: column;
   overflow-wrap: anywhere;
 }
-.danger-zone {
-  margin-top: 32px;
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--color-danger) 6%, transparent);
-}
+.danger-zone { margin-top: 32px; }
 .danger-zone h2 { margin-top: 0; color: var(--color-danger); }
+.danger-zone button { width: 100%; }
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -581,7 +577,8 @@ main a:not(.button) { color: var(--color-tone-1); }
 .card.profile.editing { align-items: flex-start; }
 .card.profile form.rename { gap: 10px; }
 .card.profile form.rename input { flex: none; width: 100%; }
-.rename-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.rename-actions { display: flex; gap: 8px; }
+.rename-actions button { flex: 1 1 0; min-width: 0; white-space: nowrap; }
 
 /* Group page: period picker under the group name */
 .period-picker { display: flex; justify-content: center; margin: 2px 0 14px; }
@@ -636,7 +633,7 @@ select.period {
 .handle:hover { color: var(--color-correct); background: var(--soft); }
 .module-ghost { opacity: 0.4; }
 .segmented.small { display: flex; margin-bottom: 8px; }
-.segmented.small button { flex: 1; }
+.segmented.small button { flex: 1; white-space: nowrap; }
 
 /* Tables that scroll sideways, with player names kept in view */
 .scroll-x { overflow-x: auto; }
@@ -746,8 +743,7 @@ details.dist[open] > summary::before { transform: rotate(90deg); }
 
 /* Button sizes: large 44px (page, dialogs, modules), medium 38px (inside cards next to content), small 30px */
 button.compact,
-.group-actions button,
-.rename-actions button {
+.group-actions button {
   height: 38px;
   padding: 0 14px;
   font-size: 14px;
@@ -792,3 +788,9 @@ button.danger-outline.tiny { padding: 0 10px; border-width: 1.5px; border-radius
 
 /* Every page starts with the same big centered title (the group page adds the period picker under it) */
 .page-title { margin-bottom: 16px; }
+
+/* A form with the field on top and its buttons under it (Nuovo gruppo) */
+.stacked-form { display: flex; flex-direction: column; gap: 10px; }
+.stacked-form p { margin: 0; }
+.stacked-form p[hidden] { display: none; }
+.stacked-form input { flex: none; width: 100%; }

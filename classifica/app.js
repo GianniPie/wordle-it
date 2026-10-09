@@ -397,7 +397,7 @@ function renderSettings() {
   renderShell(`<h1 class="page-title">Impostazioni</h1>
     <div class="settings">
       ${row("Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", onOff("hard-mode", !!gs.hardMode))}
-      ${row("Tema", '"Sistema" segue le impostazioni del telefono',
+      ${row("Tema", '"Sistema" segue le impostazioni del dispositivo',
         choice("theme", "light", "Chiaro", mode === "light") + choice("theme", "dark", "Scuro", mode === "dark") + choice("theme", "system", "Sistema", mode === "system"))}
       ${readFlag("colorBlindTheme") ? row("Colori ad alto contrasto", "", onOff("color-blind-theme", true)) : ""}
     </div>`);
@@ -845,14 +845,17 @@ async function fetchGroupData(group) {
 }
 
 function createForm() {
+  // Same layout as changing the name: field on top, Annulla and Crea side by side under it.
   return `<div class="card">
-      <p style="margin-top:0"><strong>Nuovo gruppo</strong><br><span class="muted small">Poi condividi il link di invito con gli amici.</span></p>
-      <form class="inline" data-form="create">
+      <form class="stacked-form" data-form="create">
+        <p class="muted small">Scegli il nome del gruppo, poi condividi il link di invito con gli amici.</p>
         <input type="text" name="name" maxlength="40" placeholder="Nome del gruppo" required />
-        <button class="primary" type="submit">Crea</button>
+        <p class="error small" data-error hidden></p>
+        <div class="rename-actions">
+          <button class="secondary" type="button" data-action="cancel-create">Annulla</button>
+          <button class="primary" type="submit">Crea</button>
+        </div>
       </form>
-      <p class="error small" data-error hidden></p>
-      <button class="secondary compact" data-action="cancel-create">Annulla</button>
     </div>`;
 }
 
@@ -1089,7 +1092,7 @@ function standingsModule(stats) {
         )
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">X/6 e giorno saltato valgono 7 punti. Vince chi ha meno punti; la classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito.</p>`;
+    <p class="muted small">La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito.</p>`;
   return { body };
 }
 
@@ -1153,7 +1156,8 @@ function resultsModule(stats) {
         ${option("day", "Giorno")}${option("word", "N° parola")}${option("wholeMonth", "Mese intero")}
         <button data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">Ruota</button>
       </div>
-      <div class="scroll-x"><table class="results${state.resultsFlipped ? " flipped" : ""}">${table}</table></div>`,
+      <div class="scroll-x"><table class="results${state.resultsFlipped ? " flipped" : ""}">${table}</table></div>
+      <p class="muted small">X e - (giorno saltato) valgono 7 punti.</p>`,
   };
 }
 
@@ -1162,7 +1166,7 @@ function chartModule(stats) {
   const mode = state.chartMode || "total";
   const choice = (value, label) => `<button role="radio" aria-checked="${mode === value}" data-action="chart-mode" data-value="${value}">${label}</button>`;
   return {
-    body: `<div class="segmented small" role="radiogroup" aria-label="Tipo di grafico">${choice("total", "Andamento dei punti")}${choice("gap", "Distanza dal primo")}</div>
+    body: `<div class="segmented small" role="radiogroup" aria-label="Tipo di grafico">${choice("total", "Punti totali")}${choice("gap", "Distacco dal 1°")}</div>
       <div class="chart-box"><canvas id="chart"></canvas></div>`,
   };
 }
