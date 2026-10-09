@@ -868,7 +868,7 @@ function standingsModule(stats) {
   const dash = (v) => (v == null ? "-" : v);
   const body = `<div class="scroll-x"><table class="standings">
       <thead><tr>
-        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti + dev. std</th><th>Vinte</th>
+        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti +<br>dev. std</th><th>Vinte</th>
         <th>Giocate</th><th>Miglior risultato</th><th>Peggiore risultato</th>
         ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<th>Ricorrenze ${k}</th>`).join("")}
       </tr></thead>
@@ -947,11 +947,13 @@ function resultsModule(stats) {
         .map((d, j) => `<tr>${labels.map((l, i) => `<th scope="row" class="label ${i === 0 ? "first" : ""} ${today(d)}">${l.text(d)}</th>`).join("")}${grid[j].map(td).join("")}</tr>`)
         .join("")}</tbody>`;
   }
-  const option = (key, label) => `<button class="chip" data-action="results-col" data-key="${key}" aria-pressed="${!!opts[key]}">${label}</button>`;
-  const controls = `<button class="chip" data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">⇄ Ruota</button>`;
+  // Same look as the other button groups: each button switches its option on (green) or off.
+  const option = (key, label) => `<button data-action="results-col" data-key="${key}" aria-pressed="${!!opts[key]}">${label}</button>`;
   return {
-    controls,
-    body: `<div class="chips">${option("day", "Giorno")}${option("word", "Numero parola")}${option("wholeMonth", "Tutto il mese")}</div>
+    body: `<div class="segmented small toggles" role="group" aria-label="Opzioni della tabella">
+        ${option("day", "Giorno")}${option("word", "N° parola")}${option("wholeMonth", "Mese intero")}
+        <button data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">⇄ Ruota</button>
+      </div>
       <div class="scroll-x"><table class="results${state.resultsFlipped ? " flipped" : ""}">${table}</table></div>`,
   };
 }
