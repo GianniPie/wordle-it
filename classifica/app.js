@@ -1013,8 +1013,10 @@ async function renderJoin() {
       <p><strong>${esc(group.inviter)}</strong> ti invita nel gruppo</p>
       <p style="font-size:24px;font-weight:700;margin:8px 0">${esc(group.name)}</p>
       <p class="muted small">${group.members} ${group.members == 1 ? "giocatore" : "giocatori"}</p>
-      <p><button class="primary" data-action="join">${already ? "Apri il gruppo" : "Entra nel gruppo"}</button></p>
-      <button class="secondary compact" data-action="skip-join">No grazie</button>
+      <div class="rename-actions" style="margin-top:16px">
+        <button class="secondary" data-action="skip-join">${already ? "Chiudi" : "No grazie"}</button>
+        <button class="primary" data-action="join">${already ? "Apri il gruppo" : "Entra nel gruppo"}</button>
+      </div>
     </div>`;
 }
 
