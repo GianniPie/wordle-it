@@ -178,15 +178,11 @@ function loadDefinition(day) {
   return definitions[day];
 }
 
-// Ask for it before the dialog opens: when today's game is already over, or as soon as its last row is played.
+// Ask for today's definition as soon as the game opens: it stays hidden until the game is over
+// (today's word is already on the device anyway), and it is there even without network at the end.
 function prefetchDefinition() {
-  try {
-    const state = JSON.parse(read("gameState") || "null");
-    if (!state?.lastPlayedTs || !["WIN", "FAIL"].includes(state.gameStatus)) return;
-    const d = new Date(state.lastPlayedTs);
-    const day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
-    loadDefinition(day);
-  } catch {}
+  const d = new Date();
+  loadDefinition(Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5));
 }
 
 async function showDefinition(el, day, word) {
@@ -209,7 +205,6 @@ async function showDefinition(el, day, word) {
 window.parleShowDefinition = showDefinition;
 if (window.parlePendingDefinition) showDefinition(...window.parlePendingDefinition);
 prefetchDefinition();
-window.addEventListener("game-last-tile-revealed-in-row", prefetchDefinition);
 
 function sync() {
   rememberTime();
