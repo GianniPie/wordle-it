@@ -495,7 +495,6 @@ async function renderStats() {
     <section class="module">
       <div class="module-head"><h2>Distribuzione dei tentativi</h2></div>
       <div class="dist">${bars}</div>
-      ${stats.wins ? `<p class="muted small">Media: ${decimals.format(stats.guesses / stats.wins)} tentativi per parola indovinata.</p>` : ""}
     </section>
     ${
       state.session
