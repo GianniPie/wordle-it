@@ -732,8 +732,6 @@ details.dist[open] > summary::before { transform: rotate(90deg); }
 .module.folded .module-head { margin-bottom: 0; }
 
 
-/* Dialogs with a text field sit near the top, above the phone keyboard */
-.modal-backdrop.with-input { align-items: flex-start; padding-top: max(16px, 6vh); }
 
 /* Button sizes: large 44px (pages, cards, dialogs), small 30px (controls inside modules and list rows) */
 button.danger-outline.tiny,

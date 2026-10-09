@@ -48,7 +48,8 @@ function toast(text, ms = 2000) {
 function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger = false, safe = danger, input = null, requireText = null }) {
   return new Promise((resolve) => {
     const wrap = document.createElement("div");
-    wrap.className = `modal-backdrop${input ? " with-input" : ""}`;
+    // Centred in the visible part of the screen (above the keyboard when it is open, see fit below).
+    wrap.className = "modal-backdrop";
     const cancelButton = cancel ? `<button class="${safe ? "primary" : "secondary"}" data-m="cancel">${esc(cancel)}</button>` : "";
     const okButton = `<button class="${safe ? "danger-outline" : danger ? "danger-fill" : "primary"}" data-m="ok">${esc(ok)}</button>`;
     wrap.innerHTML = `<div class="modal${danger ? " danger" : ""}${safe ? " alert" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
