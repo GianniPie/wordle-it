@@ -470,7 +470,7 @@ async function renderStats() {
         <div class="bar ${i === best && n ? "best" : ""}" style="width:${Math.max(8, (100 * n) / max)}%">${n}</div></div>`
     )
     .join("");
-  renderShell(`<h1 class="page-title">Le mie statistiche</h1>
+  renderShell(`<div class="stats-page"><h1 class="page-title">Le mie statistiche</h1>
     <section class="module stats-summary">
       <div class="module-head"><h2>Riepilogo</h2></div>
       <div class="stat-grid two">
@@ -505,7 +505,7 @@ async function renderStats() {
             <p class="muted small">Con un account le statistiche sono le stesse su tutti i tuoi dispositivi e puoi sfidare gli amici nelle classifiche.</p>
             <a class="button primary full" data-nav href="?account">Accedi</a>
           </div>`
-    }`);
+    }</div>`);
 }
 
 // Series count consecutive days won; a loss or a day not played ends them. Today, if not played yet, doesn't.
