@@ -346,8 +346,8 @@ tr.me td { background: var(--soft); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  height: 38px;
-  line-height: 36px;
+  height: 44px;
+  line-height: 40px;
   padding: 0 10px;
   font-size: 13px;
   background: var(--color-tone-6);
@@ -357,7 +357,7 @@ tr.me td { background: var(--soft); }
 .members {
   list-style: none;
   padding: 0;
-  margin: 12px 0 0;
+  margin: 4px 0 0;
 }
 .members li {
   display: flex;
@@ -390,15 +390,6 @@ tr.me td { background: var(--soft); }
   min-width: 0;
   flex-direction: column;
   overflow-wrap: anywhere;
-}
-.danger-zone { margin-top: 32px; }
-.danger-zone h2 { margin-top: 0; color: var(--color-danger); }
-.danger-zone button { width: 100%; }
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
 }
 
 .toast {
@@ -577,8 +568,6 @@ main a:not(.button) { color: var(--color-tone-1); }
 .card.profile.editing { align-items: flex-start; }
 .card.profile form.rename { gap: 10px; }
 .card.profile form.rename input { flex: none; width: 100%; }
-.rename-actions { display: flex; gap: 8px; }
-.rename-actions button { flex: 1 1 0; min-width: 0; white-space: nowrap; }
 
 /* Group page: period picker under the group name */
 .period-picker { display: flex; justify-content: center; margin: 2px 0 14px; }
@@ -734,21 +723,11 @@ details.dist[open] > summary::before { transform: rotate(90deg); }
 .module.folded { padding-bottom: 14px; }
 .module.folded .module-head { margin-bottom: 0; }
 
-/* Group commands: same buttons as the rest of the app */
-.group-actions { gap: 8px; margin-top: 16px; }
-.group-actions button { flex: 1 1 auto; }
 
 /* Dialogs with a text field sit near the top, above the phone keyboard */
 .modal-backdrop.with-input { align-items: flex-start; padding-top: max(16px, 6vh); }
 
-/* Button sizes: large 44px (page, dialogs, modules), medium 38px (inside cards next to content), small 30px */
-button.compact,
-.group-actions button {
-  height: 38px;
-  padding: 0 14px;
-  font-size: 14px;
-}
-button.compact { flex: none; }
+/* Button sizes: large 44px (pages, cards, dialogs), small 30px (controls inside modules and list rows) */
 button.danger-outline.tiny,
 .toggles button,
 .segmented.small button {
@@ -756,11 +735,7 @@ button.danger-outline.tiny,
   font-size: 13px;
 }
 button.danger-outline.tiny { padding: 0 10px; border-width: 1.5px; border-radius: 8px; }
-.card > button.compact { margin-top: 10px; }
 
-/* Account: name and email in the card, Cambia nome and Esci side by side under it */
-.account-actions { display: flex; gap: 8px; margin-top: 12px; }
-.account-actions button { flex: 1; padding: 0 10px; white-space: nowrap; }
 .card.profile .email { overflow-wrap: anywhere; }
 
 /* Avatar pictures: round, filling the circle */
@@ -784,7 +759,7 @@ button.danger-outline.tiny { padding: 0 10px; border-width: 1.5px; border-radius
 .avatar.letter-preview { width: 220px; height: 220px; font-size: 100px; }
 .zoom { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; font-size: 14px; font-weight: 600; }
 .zoom input { flex: 1; accent-color: var(--color-correct); }
-.avatar-editor .rename-actions { margin-top: 16px; }
+.avatar-editor .card-actions { margin-top: 16px; }
 
 /* Every page starts with the same big centered title (the group page adds the period picker under it) */
 .page-title { margin-bottom: 16px; }
@@ -832,3 +807,32 @@ a.button.full { width: 100%; justify-content: center; }
   background: var(--color-tone-5);
   border-radius: 10px;
 }
+
+/* Page layout, the same on every page:
+   the page title and at most one intro sentence on the page, then cards.
+   Every field and button sits in a card, in this order: title, explanation, content, buttons, grey note.
+   Buttons in a card are 44px and fill the width, one alone or two side by side. */
+.page-intro { margin: 0 0 16px; }
+.card .card-title,
+.module .card-title {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-tone-1);
+}
+.card-text { margin: 0 0 12px; }
+.card-text:last-child { margin-bottom: 0; }
+.card-actions { display: flex; gap: 8px; margin-top: 12px; }
+.card-actions > * { flex: 1 1 0; min-width: 0; white-space: nowrap; }
+.card-note { margin: 12px 0 0; }
+.card.danger .card-title { color: var(--color-danger); }
+.card.center .card-actions { margin-top: 16px; }
+/* Account: avatar and name on one row, their buttons under them */
+.card.profile { flex-wrap: wrap; }
+.card.profile .card-actions { flex-basis: 100%; }
+/* Impostazioni: the rows inside one card, without the line under the last one */
+.card.settings { padding-top: 0; padding-bottom: 0; }
+.card.settings .setting:last-child { border-bottom: none; }
+.stacked-form .card-actions { margin-top: 2px; }

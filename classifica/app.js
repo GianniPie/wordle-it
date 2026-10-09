@@ -407,15 +407,17 @@ function renderHelp() {
   const tile = (letter, evaluation = "") => `<span class="tile ${evaluation}">${letter}</span>`;
   const row = (word, at, evaluation) => `<div class="tile-row">${[...word].map((l, i) => tile(l, i === at ? evaluation : "")).join("")}</div>`;
   renderShell(`<h1 class="page-title">Come giocare</h1>
-    <p>Indovina delle <strong>PARoLE</strong> di 5 lettere in 6 tentativi.</p>
-    <p>PAR🇮🇹LE è una versione italiana (non ufficiale) di <a href="https://www.nytimes.com/games/wordle/index.html">WORDLE</a>.</p>
-    <p>Dopo ogni tentativo, i colori delle tessere cambieranno per mostrarti quanto vicino sei andato ad indovinare la parola.</p>
-    <div class="examples">
-      <div class="example">${row("buffa", 0, "correct")}<p>La lettera <strong>B</strong> è nella parola ed è nel posto giusto.</p></div>
-      <div class="example">${row("porto", 2, "present")}<p>La lettera <strong>R</strong> è nella parola ma nel posto sbagliato.</p></div>
-      <div class="example">${row("vaghi", 3, "absent")}<p>La lettera <strong>H</strong> non è nella parola.</p></div>
-    </div>
-    <p><strong>Un nuovo gioco di PAR🇮🇹LE ogni giorno!</strong></p>`);
+    <p class="page-intro">Indovina delle <strong>PARoLE</strong> di 5 lettere in 6 tentativi. Un nuovo gioco ogni giorno!</p>
+    <div class="card">
+      <h2 class="card-title">I colori</h2>
+      <p class="card-text muted small">Dopo ogni tentativo, i colori delle tessere ti mostrano quanto ti sei avvicinato alla parola.</p>
+      <div class="examples">
+        <div class="example">${row("buffa", 0, "correct")}<p>La lettera <strong>B</strong> è nella parola ed è nel posto giusto.</p></div>
+        <div class="example">${row("porto", 2, "present")}<p>La lettera <strong>R</strong> è nella parola ma nel posto sbagliato.</p></div>
+        <div class="example">${row("vaghi", 3, "absent")}<p>La lettera <strong>H</strong> non è nella parola.</p></div>
+      </div>
+      <p class="card-note muted small">PAR🇮🇹LE è una versione italiana (non ufficiale) di <a href="https://www.nytimes.com/games/wordle/index.html">WORDLE</a>.</p>
+    </div>`);
 }
 
 // ---------- settings (stored where the game reads them) ----------
@@ -465,7 +467,7 @@ function renderSettings() {
     </div>`;
   const onOff = (setting, on) => choice(setting, "off", "Disattivo", !on) + choice(setting, "on", "Attivo", on);
   renderShell(`<h1 class="page-title">Impostazioni</h1>
-    <div class="settings">
+    <div class="card settings">
       ${row("Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", onOff("hard-mode", !!gs.hardMode))}
       ${row("Tema", '"Sistema" segue le impostazioni del dispositivo',
         choice("theme", "light", "Chiaro", mode === "light") + choice("theme", "dark", "Scuro", mode === "dark") + choice("theme", "system", "Sistema", mode === "system"))}
@@ -568,9 +570,9 @@ async function renderStats() {
       state.session
         ? `<p class="muted small center">Calcolate dai risultati del tuo account: sono le stesse su tutti i tuoi dispositivi.</p>`
         : `<div class="card">
-            <p style="margin-top:0"><strong>Queste sono le partite giocate su questo dispositivo.</strong></p>
-            <p class="muted small">Con un account le statistiche sono le stesse su tutti i tuoi dispositivi e puoi sfidare gli amici nelle classifiche.</p>
-            <a class="button primary full" data-nav href="?account">Accedi</a>
+            <h2 class="card-title">Partite di questo dispositivo</h2>
+            <p class="card-text muted small">Con un account le statistiche sono le stesse su tutti i tuoi dispositivi e puoi sfidare gli amici nelle classifiche.</p>
+            <div class="card-actions"><a class="button primary" data-nav href="?account">Accedi</a></div>
           </div>`
     }</div>`);
 }
@@ -666,8 +668,11 @@ function deviceStats() {
 
 function renderNeedLogin() {
   $app.innerHTML = `<h1 class="page-title">Classifiche</h1>
-    <p>Per vedere le classifiche dei tuoi gruppi e sfidare gli amici, accedi al tuo account.</p>
-    <p><a class="button primary" data-nav href="?account">Accedi</a></p>`;
+    <div class="card">
+      <h2 class="card-title">Sfida gli amici</h2>
+      <p class="card-text muted small">Per vedere le classifiche dei tuoi gruppi, accedi al tuo account.</p>
+      <div class="card-actions"><a class="button primary" data-nav href="?account">Accedi</a></div>
+    </div>`;
 }
 
 // The player's avatar: their picture, or the first letter of the name on green.
@@ -684,7 +689,7 @@ function renderAccount() {
     ? `<form class="who rename" data-form="rename-me">
         <input type="text" name="name" maxlength="24" value="${esc(name)}" autocomplete="nickname" required aria-label="Il tuo nome" />
         <p class="error small" data-error hidden></p>
-        <span class="rename-actions">
+        <span class="card-actions">
           <button class="secondary" type="button" data-action="cancel-name">Annulla</button>
           <button class="primary" type="submit">Salva</button>
         </span>
@@ -694,23 +699,24 @@ function renderAccount() {
     <div class="card profile${state.editingName ? " editing" : ""}">
       ${avatarHtml(state.profile, "avatar")}
       ${who}
+      ${
+        state.editingName
+          ? ""
+          : `<div class="card-actions">
+              <button class="secondary" data-action="edit-name">Cambia nome</button>
+              <button class="secondary" data-action="edit-avatar">Cambia avatar</button>
+            </div>`
+      }
     </div>
-    ${
-      state.editingName
-        ? ""
-        : `<div class="account-actions">
-            <button class="secondary" data-action="edit-name">Cambia nome</button>
-            <button class="secondary" data-action="edit-avatar">Cambia avatar</button>
-          </div>`
-    }
-    <div class="account-actions">
-      <button class="secondary" data-action="logout">Esci</button>
+    <div class="card">
+      <h2 class="card-title">Accesso</h2>
+      <p class="card-text muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
+      <div class="card-actions"><button class="secondary" data-action="logout">Esci</button></div>
     </div>
-    <p class="muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
-    <div class="danger-zone">
-      <h2>Eliminare l'account</h2>
-      <p class="small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
-      <button class="danger-outline" data-action="delete-account">Elimina il mio account</button>
+    <div class="card danger">
+      <h2 class="card-title">Eliminare l'account</h2>
+      <p class="card-text muted small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
+      <div class="card-actions"><button class="danger-outline" data-action="delete-account">Elimina il mio account</button></div>
     </div>`);
 }
 
@@ -756,7 +762,7 @@ function renderAvatarEditor() {
            </label>`
         : `<p class="muted small center">Scegli una foto dal telefono o dal computer.</p>`
     }
-    <div class="account-actions">
+    <div class="card-actions">
       <button class="secondary" data-action="pick-photo">${ed.img ? "Scegli un'altra foto" : "Scegli foto"}</button>
     </div>
     <input type="file" id="avatar-file" accept="image/*" hidden />`;
@@ -767,7 +773,7 @@ function renderAvatarEditor() {
       <div class="segmented" role="radiogroup" aria-label="Tipo di avatar">${choice("photo", "Foto")}${choice("letter", "Iniziale")}</div>
       ${ed.mode === "photo" ? photo : letter}
       <p class="error small center" data-error hidden></p>
-      <div class="rename-actions">
+      <div class="card-actions">
         <button class="secondary" data-action="cancel-avatar">Annulla</button>
         <button class="primary" data-action="save-avatar" ${ed.mode === "photo" && !ed.img ? "disabled" : ""}>Salva</button>
       </div>
@@ -866,13 +872,15 @@ async function saveAvatar(button) {
 }
 
 function renderError(error) {
-  if (isOffline(error)) {
-    $app.innerHTML = `<p class="center">Sei offline e su questo dispositivo non ci sono ancora dati salvati per questa pagina.</p>
-      <p class="center"><button class="secondary" data-action="reload">Riprova</button></p>`;
-    return;
-  }
-  $app.innerHTML = `<p class="error center">Qualcosa è andato storto: ${esc(errorText(error))}</p>
-    <p class="center"><button class="secondary" data-action="reload">Riprova</button></p>`;
+  const offline = isOffline(error);
+  $app.innerHTML = `<h1 class="page-title">${offline ? "Sei offline" : "Errore"}</h1>
+    <div class="card">
+      <h2 class="card-title">${offline ? "Nessun dato salvato" : "Qualcosa è andato storto"}</h2>
+      <p class="card-text muted small">${
+        offline ? "Su questo dispositivo non ci sono ancora dati salvati per questa pagina. Riprova quando torna la connessione." : esc(errorText(error))
+      }</p>
+      <div class="card-actions"><button class="primary" data-action="reload">Riprova</button></div>
+    </div>`;
 }
 
 // ---------- login ----------
@@ -884,30 +892,31 @@ async function renderLogin(sentTo) {
     if (data?.[0]) invite = `<div class="banner"><strong>${esc(data[0].inviter)}</strong> ti invita nel gruppo <strong>${esc(data[0].name)}</strong></div>`;
   }
   if (sentTo) {
-    // Same layout as the email screen: title, a card with the field and its button, then the other choices.
     $app.innerHTML = `${invite}
       <h1 class="page-title">Account</h1>
       <div class="card">
-        <p style="margin-top:0"><strong>Controlla la posta</strong><br><span class="muted small">Abbiamo inviato un codice a <strong>${esc(sentTo)}</strong>. Scrivilo qui:</span></p>
+        <h2 class="card-title">Controlla la posta</h2>
+        <p class="card-text muted small">Abbiamo inviato un codice a <strong>${esc(sentTo)}</strong>. Scrivilo qui:</p>
         <form class="inline" data-form="code">
           <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Codice" required style="text-align:center;letter-spacing:4px" />
           <button class="primary" type="submit">Accedi</button>
         </form>
         <p class="error small" data-error hidden></p>
-      </div>
-      <p class="muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
-      <div class="rename-actions">
-        <button class="secondary" data-action="resend-code">Nuovo codice</button>
-        <button class="secondary" data-action="login-again">Cambia email</button>
+        <div class="card-actions">
+          <button class="secondary" data-action="resend-code">Nuovo codice</button>
+          <button class="secondary" data-action="login-again">Cambia email</button>
+        </div>
+        <p class="card-note muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
       </div>`;
     $app.querySelector("input").focus();
     return;
   }
   $app.innerHTML = `${invite}
     <h1 class="page-title">Account</h1>
-    <p>Con un account i tuoi risultati di Par🇮🇹le entrano nella classifica dei gruppi di amici. Se ce l'hai già, usa la stessa email per ritrovare tutto su questo dispositivo.</p>
+    <p class="page-intro">Con un account i tuoi risultati di Par🇮🇹le entrano nella classifica dei gruppi di amici. Se ce l'hai già, usa la stessa email per ritrovare tutto su questo dispositivo.</p>
     <div class="card">
-      <p style="margin-top:0"><strong>La tua email</strong><br><span class="muted small">Ti mandiamo un codice da scrivere qui, niente password.</span></p>
+      <h2 class="card-title">La tua email</h2>
+      <p class="card-text muted small">Ti mandiamo un codice da scrivere qui, niente password.</p>
       <form class="inline" data-form="login">
         <input type="email" name="email" placeholder="nome@email.it" autocomplete="email" required />
         <button class="primary" type="submit">Invia</button>
@@ -957,9 +966,10 @@ function showFormError(form, error) {
 // ---------- profile ----------
 
 function renderName() {
-  $app.innerHTML = `<h1 class="page-title">Come ti chiami?</h1>
-    <p>Questo nome lo vedranno gli altri nei tuoi gruppi.</p>
+  $app.innerHTML = `<h1 class="page-title">Account</h1>
     <div class="card">
+      <h2 class="card-title">Come ti chiami?</h2>
+      <p class="card-text muted small">Questo nome lo vedranno gli altri nei tuoi gruppi.</p>
       <form class="inline" data-form="name">
         <input type="text" name="name" maxlength="24" placeholder="Il tuo nome" autocomplete="nickname" required />
         <button class="primary" type="submit">Salva</button>
@@ -1010,11 +1020,12 @@ async function renderJoin() {
     return navigate("./", true);
   }
   const already = state.groups.some((g) => g.id === group.id);
-  $app.innerHTML = `<div class="card center" style="margin-top:16px">
-      <p><strong>${esc(group.inviter)}</strong> ti invita nel gruppo</p>
-      <p style="font-size:24px;font-weight:700;margin:8px 0">${esc(group.name)}</p>
-      <p class="muted small">${group.members} ${group.members == 1 ? "giocatore" : "giocatori"}</p>
-      <div class="rename-actions" style="margin-top:16px">
+  $app.innerHTML = `<h1 class="page-title">Invito</h1>
+    <div class="card center">
+      <p class="card-text"><strong>${esc(group.inviter)}</strong> ti invita nel gruppo</p>
+      <p class="card-text" style="font-size:24px;font-weight:700">${esc(group.name)}</p>
+      <p class="card-text muted small">${group.members} ${group.members == 1 ? "giocatore" : "giocatori"}</p>
+      <div class="card-actions">
         <button class="secondary" data-action="skip-join">${already ? "Chiudi" : "No grazie"}</button>
         <button class="primary" data-action="join">${already ? "Apri il gruppo" : "Entra nel gruppo"}</button>
       </div>
@@ -1097,13 +1108,14 @@ async function fetchGroupData(group) {
 }
 
 function createForm() {
-  // Same layout as changing the name: field on top, Annulla and Crea side by side under it.
+  // Field on top, Annulla and Crea side by side under it.
   return `<div class="card">
+      <h2 class="card-title">Nome del gruppo</h2>
+      <p class="card-text muted small">Poi condividi il link di invito con gli amici.</p>
       <form class="stacked-form" data-form="create">
-        <p class="muted small">Scegli il nome del gruppo, poi condividi il link di invito con gli amici.</p>
         <input type="text" name="name" maxlength="40" placeholder="Nome del gruppo" required />
         <p class="error small" data-error hidden></p>
-        <div class="rename-actions">
+        <div class="card-actions">
           <button class="secondary" type="button" data-action="cancel-create">Annulla</button>
           <button class="primary" type="submit">Crea</button>
         </div>
@@ -1121,11 +1133,15 @@ function renderShell(body) {
 
 function renderNoGroups() {
   renderShell(`<h1 class="page-title">Classifiche</h1>
-    <p>Ciao ${esc(state.profile.display_name)}, non sei ancora in nessun gruppo.</p>
+    <p class="page-intro">Ciao ${esc(state.profile.display_name)}, non sei ancora in nessun gruppo.</p>
     <div class="card">
-      <p style="margin-top:0"><strong>Entrare nel gruppo di un amico</strong><br><span class="muted small">Apri il link di invito che ti ha mandato.</span></p>
-      <p style="margin-bottom:0"><strong>Creare un gruppo tuo</strong><br><span class="muted small">Poi invita gli amici con un link.</span></p>
-      <p style="margin-bottom:0"><a class="button secondary" data-nav href="?nuovo">Crea un gruppo</a></p>
+      <h2 class="card-title">Entra nel gruppo di un amico</h2>
+      <p class="card-text muted small">Apri il link di invito che ti ha mandato.</p>
+    </div>
+    <div class="card">
+      <h2 class="card-title">Crea un gruppo tuo</h2>
+      <p class="card-text muted small">Poi invita gli amici con un link.</p>
+      <div class="card-actions"><a class="button primary" data-nav href="?nuovo">Crea un gruppo</a></div>
     </div>`);
 }
 
@@ -1538,21 +1554,23 @@ function manageSection(group, data) {
     )
     .join("");
   return `<div>
-      <p style="margin-top:0"><strong>Invita gli amici</strong><br><span class="muted small">Chi apre questo link può entrare nel gruppo.</span></p>
+      <h2 class="card-title">Invita gli amici</h2>
+      <p class="card-text muted small">Chi apre questo link può entrare nel gruppo.</p>
       <div class="invite">
         <code>${esc(inviteUrl(group.invite_code))}</code>
-        <button class="secondary compact" data-action="share">${navigator.share ? "Condividi" : "Copia"}</button>
+        <button class="primary" data-action="share">${navigator.share ? "Condividi" : "Copia"}</button>
       </div>
+      <h2 class="card-title" style="margin-top:20px">Giocatori</h2>
       <ul class="members">${members}</ul>
-      <div class="actions group-actions">
-        ${
-          isOwner
-            ? `<button class="secondary" data-action="rename">Rinomina</button>
-               <button class="secondary" data-action="new-code">Nuovo link di invito</button>
-               <button class="danger-outline" data-action="delete-group">Elimina gruppo</button>`
-            : `<button class="danger-outline" data-action="leave">Esci dal gruppo</button>`
-        }
-      </div>
+      ${
+        isOwner
+          ? `<div class="card-actions">
+               <button class="secondary" data-action="rename">Rinomina</button>
+               <button class="secondary" data-action="new-code">Nuovo link</button>
+             </div>
+             <div class="card-actions"><button class="danger-outline" data-action="delete-group">Elimina gruppo</button></div>`
+          : `<div class="card-actions"><button class="danger-outline" data-action="leave">Esci dal gruppo</button></div>`
+      }
     </div>`;
 }
 
