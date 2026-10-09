@@ -745,3 +745,17 @@ details.dist[open] > summary::before { transform: rotate(90deg); }
 .module.folded .module-title .chevron { transform: rotate(-90deg); }
 .module.folded { padding-bottom: 12px; }
 .module.folded .module-head { margin-bottom: 0; }
+
+/* Group commands: same buttons as the rest of the app */
+.group-actions { gap: 8px; margin-top: 16px; }
+.group-actions button { flex: 1 1 auto; height: 40px; padding: 0 14px; font-size: 14px; }
+button.danger-outline.tiny {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  border-width: 1.5px;
+  border-radius: 8px;
+}
+
+/* Dialogs with a text field sit near the top, above the phone keyboard */
+.modal-backdrop.with-input { align-items: flex-start; padding-top: max(16px, 6vh); }

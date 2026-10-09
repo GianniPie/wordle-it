@@ -45,7 +45,7 @@ function toast(text, ms = 2000) {
 function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger = false, input = null, requireText = null }) {
   return new Promise((resolve) => {
     const wrap = document.createElement("div");
-    wrap.className = "modal-backdrop";
+    wrap.className = `modal-backdrop${input ? " with-input" : ""}`;
     wrap.innerHTML = `<div class="modal${danger ? " danger" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         ${danger ? `<div class="modal-icon" aria-hidden="true">!</div>` : ""}
         <h3 id="modal-title">${esc(title)}</h3>
@@ -57,6 +57,18 @@ function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger =
         </div>
       </div>`;
     document.body.appendChild(wrap);
+    // When the phone keyboard opens, keep the dialog within the visible part of the screen.
+    const vv = window.visualViewport;
+    const fit = () => {
+      wrap.style.top = `${vv.offsetTop}px`;
+      wrap.style.height = `${vv.height}px`;
+      wrap.style.bottom = "auto";
+    };
+    if (vv) {
+      fit();
+      vv.addEventListener("resize", fit);
+      vv.addEventListener("scroll", fit);
+    }
     const field = wrap.querySelector(".modal-input");
     const okButton = wrap.querySelector('[data-m="ok"]');
     const check = () => {
@@ -64,6 +76,8 @@ function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger =
     };
     const close = (value) => {
       document.removeEventListener("keydown", onKey);
+      vv?.removeEventListener("resize", fit);
+      vv?.removeEventListener("scroll", fit);
       wrap.remove();
       resolve(value);
     };
@@ -1087,7 +1101,7 @@ function manageSection(group, data) {
   const members = data.members
     .map(
       (m) => `<li><span>${esc(m.name)}${m.id === group.owner_id ? ` <span class="muted small">(admin)</span>` : ""}</span>
-        ${isOwner && m.id !== me ? `<button class="link danger small" data-action="remove" data-id="${m.id}" data-name="${esc(m.name)}">Rimuovi</button>` : ""}</li>`
+        ${isOwner && m.id !== me ? `<button class="danger-outline tiny" data-action="remove" data-id="${m.id}" data-name="${esc(m.name)}">Rimuovi</button>` : ""}</li>`
     )
     .join("");
   return `<div>
@@ -1097,13 +1111,13 @@ function manageSection(group, data) {
         <button class="secondary" data-action="share">${navigator.share ? "Condividi" : "Copia"}</button>
       </div>
       <ul class="members">${members}</ul>
-      <div class="actions">
+      <div class="actions group-actions">
         ${
           isOwner
-            ? `<button class="link" data-action="rename">Rinomina</button>
-               <button class="link" data-action="new-code">Nuovo link di invito</button>
-               <button class="link danger" data-action="delete-group">Elimina gruppo</button>`
-            : `<button class="link danger" data-action="leave">Esci dal gruppo</button>`
+            ? `<button class="secondary" data-action="rename">Rinomina</button>
+               <button class="secondary" data-action="new-code">Nuovo link di invito</button>
+               <button class="danger-outline" data-action="delete-group">Elimina gruppo</button>`
+            : `<button class="danger-outline" data-action="leave">Esci dal gruppo</button>`
         }
       </div>
     </div>`;
@@ -1150,6 +1164,12 @@ const actions = {
   "cancel-create": () => navigate("./"),
   setting: (el) => changeSetting(el.dataset.setting, el.dataset.value),
   logout: async () => {
+    const ok = await modal({
+      title: "Uscire dall'account?",
+      html: "<p>Su questo dispositivo non vedrai più le classifiche e le tue partite non verranno salvate. Per rientrare dovrai chiedere un nuovo codice via email.</p>",
+      ok: "Esci",
+    });
+    if (!ok) return;
     await sb.auth.signOut();
     state.data = {};
     state.groups = [];
