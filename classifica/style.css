@@ -568,13 +568,13 @@ main a:not(.button) { color: var(--color-tone-1); }
   border-radius: 8px;
 }
 .modal-input { width: 100%; margin: 4px 0 4px; }
+/* Dialog buttons: one under the other, full width (Annulla last, nearest the thumb in confirmations) */
 .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
   margin-top: 18px;
 }
+.modal-actions button { width: 100%; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
 
