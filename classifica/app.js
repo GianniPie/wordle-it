@@ -60,11 +60,14 @@ function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger =
       </div>`;
     document.body.appendChild(wrap);
     // When the phone keyboard opens, keep the dialog within the visible part of the screen.
+    // A long dialog then scrolls inside, so that the text field stays in sight above the keyboard.
     const vv = window.visualViewport;
     const fit = () => {
       wrap.style.top = `${vv.offsetTop}px`;
       wrap.style.height = `${vv.height}px`;
       wrap.style.bottom = "auto";
+      const field = wrap.querySelector(".modal-input");
+      if (field && document.activeElement === field) requestAnimationFrame(() => field.scrollIntoView({ block: "center" }));
     };
     if (vv) {
       fit();
