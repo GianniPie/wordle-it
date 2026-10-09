@@ -1,4 +1,4 @@
-import { sb, dayNumber, dayDate, points, syncToday } from "./db.js";
+import { sb, dayNumber, dayDate, points, MISSED_DAY_POINTS, syncToday } from "./db.js";
 
 const $app = document.getElementById("app");
 const $menu = document.getElementById("menu");
@@ -689,8 +689,11 @@ async function submitCreate(form) {
 function monthStats(data, month) {
   const { first, last } = monthRange(month);
   const today = dayNumber(new Date());
+  // Days already over in this month: a day nobody can play any more counts as missed if not played.
+  const closedUntil = Math.min(last, today - 1);
+  const closedDays = Math.max(0, closedUntil - first + 1);
   const rows = new Map(
-    data.members.map((m) => [m.id, { ...m, points: 0, played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0] }])
+    data.members.map((m) => [m.id, { ...m, points: 0, played: 0, playedClosed: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0] }])
   );
   for (const r of data.results) {
     if (r.day < first || r.day > last) continue;
@@ -698,6 +701,7 @@ function monthStats(data, month) {
     if (!row) continue;
     row.points += points(r);
     row.played += 1;
+    if (r.day <= closedUntil) row.playedClosed += 1;
     if (r.won) {
       row.wins += 1;
       row.guesses += r.num_guesses;
@@ -706,9 +710,14 @@ function monthStats(data, month) {
       row.dist[6] += 1;
     }
   }
+  for (const row of rows.values()) {
+    row.missed = closedDays - row.playedClosed;
+    row.points += row.missed * MISSED_DAY_POINTS;
+  }
+  const anyPlayed = [...rows.values()].some((r) => r.played);
   const standings = [...rows.values()].sort(
     (a, b) =>
-      b.points - a.points ||
+      a.points - b.points ||
       b.wins - a.wins ||
       (a.wins ? a.guesses / a.wins : 9) - (b.wins ? b.guesses / b.wins : 9) ||
       a.name.localeCompare(b.name)
@@ -718,13 +727,12 @@ function monthStats(data, month) {
     const prev = standings[i - 1];
     s.rank = prev && prev.points === s.points && prev.wins === s.wins ? prev.rank : i + 1;
   });
-  return { first, last, today, standings, finished: today > last };
+  return { first, last, today, standings, anyPlayed, finished: today > last };
 }
 
-function winnersOf(standings) {
-  const top = standings[0];
-  if (!top || top.points === 0) return [];
-  return standings.filter((s) => s.rank === 1);
+function winnersOf(stats) {
+  if (!stats.anyPlayed) return [];
+  return stats.standings.filter((s) => s.rank === 1);
 }
 
 // ---------- group page ----------
@@ -736,7 +744,7 @@ function renderGroup() {
   const firstMonth = monthOfDate(new Date(group.created_at));
   const thisMonth = monthOfDate(new Date());
   const stats = monthStats(data, state.month);
-  const winners = winnersOf(stats.standings);
+  const winners = winnersOf(stats);
 
   let banner;
   if (stats.finished) {
@@ -747,27 +755,27 @@ function renderGroup() {
     const left = stats.last - stats.today + 1;
     banner = winners.length
       ? `<div class="banner">In testa: <strong>${esc(winners.map((w) => w.name).join(", "))}</strong> · ${left === 1 ? "ultimo giorno" : `mancano ${left} giorni`}</div>`
-      : `<div class="banner">Nessun punto ancora · mancano ${left} giorni</div>`;
+      : `<div class="banner">Nessuno ha ancora giocato · mancano ${left} giorni</div>`;
   }
 
   const table = `<table>
-      <thead><tr><th></th><th>Giocatore</th><th>Punti</th><th>Giocate</th><th>Vinte</th><th>Media</th></tr></thead>
+      <thead><tr><th></th><th>Giocatore</th><th>Punti</th><th>Giocate</th><th>Saltate</th><th>Media</th></tr></thead>
       <tbody>${stats.standings
         .map(
           (s) => `<tr class="${s.id === me ? "me" : ""}">
-            <td class="pos">${s.points ? (s.rank === 1 ? "🥇" : s.rank === 2 ? "🥈" : s.rank === 3 ? "🥉" : s.rank) : ""}</td>
+            <td class="pos">${stats.anyPlayed ? (s.rank === 1 ? "🥇" : s.rank === 2 ? "🥈" : s.rank === 3 ? "🥉" : s.rank) : ""}</td>
             <td class="name">${esc(s.name)}</td>
             <td class="pts">${s.points}</td>
             <td>${s.played}</td>
-            <td>${s.played ? Math.round((100 * s.wins) / s.played) + "%" : "-"}</td>
+            <td>${s.missed}</td>
             <td>${s.wins ? (s.guesses / s.wins).toFixed(1) : "-"}</td>
           </tr>`
         )
         .join("")}</tbody>
     </table>
-    <p class="muted small">Punti: parola indovinata al 1° tentativo 6, al 2° 5, ... al 6° 1. Non indovinata o non giocata 0. Media = tentativi medi per le parole indovinate.</p>`;
+    <p class="muted small">Vince chi ha <strong>meno punti</strong>. Parola indovinata in N tentativi = N punti, non indovinata (X/6) = 7, giorno saltato = 7. La parola di oggi conta come saltata solo da domani. Media = tentativi medi per le parole indovinate.</p>`;
 
-  const anyPlayed = stats.standings.some((s) => s.played);
+  const anyPlayed = stats.anyPlayed;
 
   renderShell(
     `<h1 class="group-title">${esc(group.name)}</h1>
@@ -798,7 +806,7 @@ function todaySection(data, stats) {
       let text;
       if (!r) text = `<span class="muted">non ancora</span>`;
       else if (!iPlayed && m.id !== me) text = "✓ fatto";
-      else text = r.won ? `${r.num_guesses}/6 · +${points(r)}` : "X/6 · 0";
+      else text = r.won ? `${r.num_guesses}/6 · ${points(r)} punti` : `X/6 · ${points(r)} punti`;
       return `<li><span>${esc(m.name)}</span><span>${text}</span></li>`;
     })
     .join("");
@@ -810,13 +818,15 @@ function distributionSection(stats) {
   return stats.standings
     .filter((s) => s.played)
     .map((s) => {
-      const max = Math.max(...s.dist, 1);
-      // Green for the most frequent winning try (never for X).
+      // 1-6 tries, X/6, and days skipped ("-").
+      const counts = [...s.dist, s.missed];
+      const max = Math.max(...counts, 1);
+      // Green for the most frequent winning try (never for X or skipped days).
       const wins = s.dist.slice(0, 6);
       const best = wins.indexOf(Math.max(...wins));
-      const rows = s.dist
+      const rows = counts
         .map(
-          (n, i) => `<div class="row"><span>${i < 6 ? i + 1 : "X"}</span>
+          (n, i) => `<div class="row"><span>${i < 6 ? i + 1 : i === 6 ? "X" : "-"}</span>
             <div class="bar ${i === best && n ? "best" : ""}" style="width:${Math.max(8, (100 * n) / max)}%">${n}</div></div>`
         )
         .join("");
@@ -829,7 +839,7 @@ function hallOfFame(data, firstMonth, thisMonth) {
   const titles = new Map();
   const lines = [];
   for (let m = thisMonth - 1; m >= firstMonth; m--) {
-    const winners = winnersOf(monthStats(data, m).standings);
+    const winners = winnersOf(monthStats(data, m));
     winners.forEach((w) => titles.set(w.name, (titles.get(w.name) || 0) + 1));
     lines.push(
       `<li><strong>${monthLabel(m)}</strong>: ${winners.length ? `${esc(winners.map((w) => w.name).join(" e "))} (${winners[0].points} punti)` : `<span class="muted">nessuno</span>`}</li>`
@@ -860,10 +870,11 @@ function drawChart(stats) {
   const datasets = players.map((s) => {
     const byDay = new Map(data.results.filter((r) => r.user_id === s.id).map((r) => [r.day, points(r)]));
     let total = 0;
+    const dayPoints = (d) => byDay.get(d) ?? (d < stats.today ? MISSED_DAY_POINTS : 0);
     const color = LINE_COLORS[data.members.findIndex((m) => m.id === s.id) % LINE_COLORS.length];
     return {
       label: s.name,
-      data: days.map((d) => (total += byDay.get(d) || 0)),
+      data: days.map((d) => (total += dayPoints(d))),
       borderColor: color,
       backgroundColor: color,
       borderWidth: 2.5,

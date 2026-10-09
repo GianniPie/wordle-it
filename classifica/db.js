@@ -18,8 +18,12 @@ export function dayDate(day) {
   return new Date(FIRST_PUZZLE + day * 864e5);
 }
 
+// Lowest total wins: a word guessed in N tries is worth N points, X/6 is worth 7,
+// and so is a day not played (from the next day on; today can still be played).
+export const MISSED_DAY_POINTS = 7;
+
 export function points(result) {
-  return result.won ? 7 - result.num_guesses : 0;
+  return result.won ? result.num_guesses : 7;
 }
 
 // Uploads today's finished game from the game's own saved state, once per user and day.
