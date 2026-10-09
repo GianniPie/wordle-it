@@ -884,20 +884,21 @@ async function renderLogin(sentTo) {
     if (data?.[0]) invite = `<div class="banner"><strong>${esc(data[0].inviter)}</strong> ti invita nel gruppo <strong>${esc(data[0].name)}</strong></div>`;
   }
   if (sentTo) {
+    // Same layout as the email screen: title, a card with the field and its button, then the other choices.
     $app.innerHTML = `${invite}
-      <div class="card center" style="margin-top:16px">
-        <p><strong>Controlla la posta</strong></p>
-        <p>Abbiamo inviato un codice a <strong>${esc(sentTo)}</strong>. Scrivilo qui:</p>
+      <h1 class="page-title">Account</h1>
+      <div class="card">
+        <p style="margin-top:0"><strong>Controlla la posta</strong><br><span class="muted small">Abbiamo inviato un codice a <strong>${esc(sentTo)}</strong>. Scrivilo qui:</span></p>
         <form class="inline" data-form="code">
-          <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Codice" required style="text-align:center;letter-spacing:4px;font-size:20px" />
+          <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Codice" required style="text-align:center;letter-spacing:4px" />
           <button class="primary" type="submit">Accedi</button>
         </form>
         <p class="error small" data-error hidden></p>
-        <p class="muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
-        <div class="actions" style="justify-content:center">
-          <button class="secondary compact" data-action="resend-code">Manda un nuovo codice</button>
-          <button class="secondary compact" data-action="login-again">Usa un'altra email</button>
-        </div>
+      </div>
+      <p class="muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
+      <div class="rename-actions">
+        <button class="secondary" data-action="resend-code">Nuovo codice</button>
+        <button class="secondary" data-action="login-again">Cambia email</button>
       </div>`;
     $app.querySelector("input").focus();
     return;
