@@ -475,11 +475,11 @@ async function renderStats() {
       <div class="module-head"><h2>Riepilogo</h2></div>
       <div class="stat-grid two">
         ${number(stats.played, "Giocate")}
-        ${number(stats.played ? decimals.format(stats.avgResult) : "-", "Media risultati")}
+        ${number(stats.daysInRow ?? "-", "Giorni consecutivi")}
       </div>
       <div class="stat-grid two">
         ${number(stats.bestResult ? `${stats.bestResult}/6` : "-", "Risultato migliore")}
-        ${number(stats.daysInRow ?? "-", "Giorni consecutivi")}
+        ${number(stats.played ? decimals.format(stats.avgResult) : "-", "Media risultati")}
       </div>
       <div class="stat-grid three">
         ${number(time(stats.timeBest), "Tempo migliore")}
