@@ -15,8 +15,8 @@ const state = {
   groupId: null,
   period: null, // months since year 0 (year * 12 + month), or "all" for the whole history
   resultsFlipped: read("parle-results-flipped") === "1", // Risultati: players as rows
-  chartMode: "total", // Grafico: "total" or "gap" (distance from the leader)
-  distOpen: null, // Distribuzione: ids of the players shown open (null: only me)
+  chartMode: read("parle-chart-mode") || "total", // Grafico: "total" or "gap" (distance from the leader)
+  distOpen: readJSON("parle-dist-open", null) && new Set(readJSON("parle-dist-open", [])), // Distribuzione: players shown open (null: only me)
   resultsCols: readJSON("parle-results-cols", { day: true, word: true, wholeMonth: true }), // Risultati options
   folded: new Set(readJSON("parle-folded", [])), // modules shown closed
   data: {}, // per group: { members, results }
@@ -250,7 +250,7 @@ async function route() {
   if (view.name === "new-group") return renderCreate();
   if (view.groupId && state.groups.some((g) => g.id === view.groupId)) state.groupId = view.groupId;
   if (!state.groupId) return renderNoGroups();
-  state.period = monthOfDate(new Date());
+  state.period = savedPeriod();
   loadGroup();
 }
 
@@ -777,6 +777,14 @@ const MODULES = {
   distribution: "Distribuzione dei tentativi",
 };
 
+// The period last chosen: "all", the current month (also after the month changes), or a past month.
+function savedPeriod() {
+  const v = read("parle-period");
+  if (v === "all") return "all";
+  if (v && v !== "current") return Number(v);
+  return monthOfDate(new Date());
+}
+
 function moduleOrder() {
   let saved = [];
   try {
@@ -1173,6 +1181,7 @@ const actions = {
   },
   "chart-mode": (el) => {
     state.chartMode = el.dataset.value;
+    store("parle-chart-mode", state.chartMode);
     renderGroup();
   },
   share: shareInvite,
@@ -1263,6 +1272,7 @@ $app.addEventListener("click", (e) => {
 $app.addEventListener("change", (e) => {
   if (e.target.matches("select.period")) {
     state.period = e.target.value === "all" ? "all" : Number(e.target.value);
+    store("parle-period", state.period === "all" ? "all" : state.period === monthOfDate(new Date()) ? "current" : String(state.period));
     renderGroup();
   }
 });
@@ -1275,6 +1285,7 @@ $app.addEventListener(
     if (!el.matches?.("details.dist")) return;
     if (!state.distOpen) state.distOpen = new Set([...$app.querySelectorAll("details.dist[open]")].map((d) => d.dataset.player));
     el.open ? state.distOpen.add(el.dataset.player) : state.distOpen.delete(el.dataset.player);
+    store("parle-dist-open", JSON.stringify([...state.distOpen]));
   },
   true
 );
