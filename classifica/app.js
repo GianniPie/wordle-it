@@ -91,6 +91,7 @@ function redirectUrl() {
 // Which screen to show, from the address: ?account, ?nuovo, ?gruppo=<id>, or the leaderboards.
 function currentView() {
   const params = new URLSearchParams(location.search);
+  if (params.has("come-giocare")) return { name: "help" };
   if (params.has("account")) return { name: "account" };
   if (params.has("nuovo")) return { name: "new-group" };
   return { name: "groups", groupId: params.get("gruppo") };
@@ -145,6 +146,16 @@ async function init() {
 
 async function route() {
   let view = currentView();
+  if (view.name === "help") {
+    // Readable without an account; the menu uses the groups the game page remembered.
+    if (state.session && !state.groups.length) {
+      try {
+        state.groups = JSON.parse(read("parle-groups") || "[]");
+      } catch {}
+    }
+    renderMenu();
+    return renderHelp();
+  }
   if (!state.session) {
     state.groups = [];
     store("parle-groups", null);
@@ -199,7 +210,7 @@ function renderMenu() {
     : "";
   $menu.innerHTML = `
     <a class="item" href="../">${icon("M8 5v14l11-7z")}Gioca</a>
-    <a class="item" href="../#come-giocare">${icon("M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z")}Come giocare</a>
+    <a class="item" data-nav href="?come-giocare"${current(view.name === "help")}>${icon("M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z")}Come giocare</a>
     <a class="item" data-nav href="./">${icon("M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z")}Classifiche</a>
     ${groups}
     <a class="item" data-nav href="?account"${current(view.name === "account")}>${icon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z")}Account</a>
@@ -226,6 +237,22 @@ document.addEventListener("click", (e) => {
   }
 });
 window.addEventListener("keydown", (e) => e.key === "Escape" && closeMenu());
+
+function renderHelp() {
+  const tile = (letter, evaluation = "") => `<span class="tile ${evaluation}">${letter}</span>`;
+  const row = (word, at, evaluation) => `<div class="tile-row">${[...word].map((l, i) => tile(l, i === at ? evaluation : "")).join("")}</div>`;
+  renderShell(`<h2>Come giocare</h2>
+    <p>Indovina delle <strong>PARoLE</strong> di 5 lettere in 6 tentativi.</p>
+    <p>PAR🇮🇹LE è una versione italiana (non ufficiale) di <a href="https://www.nytimes.com/games/wordle/index.html">WORDLE</a>.</p>
+    <p>Dopo ogni tentativo, i colori delle tessere cambieranno per mostrarti quanto vicino sei andato ad indovinare la parola.</p>
+    <div class="examples">
+      <div class="example">${row("buffa", 0, "correct")}<p>La lettera <strong>B</strong> è nella parola ed è nel posto giusto.</p></div>
+      <div class="example">${row("porto", 2, "present")}<p>La lettera <strong>R</strong> è nella parola ma nel posto sbagliato.</p></div>
+      <div class="example">${row("vaghi", 3, "absent")}<p>La lettera <strong>H</strong> non è nella parola.</p></div>
+    </div>
+    <p><strong>Un nuovo gioco di PAR🇮🇹LE ogni giorno!</strong></p>
+    <p><a class="button primary" href="../">Gioca</a></p>`);
+}
 
 function renderNeedLogin() {
   $app.innerHTML = `<h2>Classifiche</h2>

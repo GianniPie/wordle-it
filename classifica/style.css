@@ -15,6 +15,7 @@
   --color-tone-7: #ffffff;
   --color-correct: var(--green);
   --color-present: var(--yellow);
+  --color-absent: var(--color-tone-2);
   --color-danger: #c0392b;
   --game-max-width: 500px;
   font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
@@ -30,6 +31,7 @@
   --color-tone-7: #121213;
   --color-correct: var(--darkendGreen);
   --color-present: var(--darkendYellow);
+  --color-absent: var(--color-tone-4);
   --color-danger: #e57368;
 }
 .colorblind {
@@ -358,3 +360,39 @@ a.button {
   font-weight: 700;
   overflow-wrap: anywhere;
 }
+
+/* Come giocare: example tiles like the game's */
+.examples {
+  margin: 20px 0;
+  border-top: 1px solid var(--color-tone-4);
+  border-bottom: 1px solid var(--color-tone-4);
+}
+.example { margin: 20px 0; }
+.tile-row {
+  display: grid;
+  grid-template-columns: repeat(5, 40px);
+  gap: 4px;
+}
+.tile {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  font-size: 2rem;
+  line-height: 2rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: var(--color-tone-1);
+  border: 2px solid var(--color-tone-3);
+  box-sizing: border-box;
+}
+.tile.correct, .tile.present, .tile.absent {
+  color: #fff;
+  border: none;
+}
+.tile.correct { background: var(--color-correct); }
+.tile.present { background: var(--color-present); }
+.tile.absent { background: var(--color-absent); }
+
+main a:not(.button) { color: var(--color-tone-1); }
