@@ -100,7 +100,9 @@ function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger =
     if (field) {
       field.addEventListener("input", check);
       check();
-      setTimeout(() => (input.readonly ? field.select() : field.focus()), 0);
+      // A confirmation to type (ELIMINA) starts without the keyboard, so the whole message can be read first.
+      if (requireText) setTimeout(() => cancelEl?.focus({ preventScroll: true }), 0);
+      else setTimeout(() => (input.readonly ? field.select() : field.focus()), 0);
     } else {
       setTimeout(() => (safe && cancelEl ? cancelEl : okEl).focus(), 0);
     }
