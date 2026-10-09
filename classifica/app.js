@@ -752,11 +752,13 @@ function periodStats(data, first, last) {
     };
   });
 
-  // Fewest points first; on equal points, the lower mean + standard deviation (steadier player) goes first.
-  const standings = rows.sort((a, b) => a.points - b.points || a.mean + a.sd - (b.mean + b.sd) || a.name.localeCompare(b.name));
+  // Ranked on points + standard deviation of the daily points (lower is better): on equal points
+  // the steadier player goes first, so there are no ties.
+  rows.forEach((r) => (r.score = r.points + r.sd));
+  const standings = rows.sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
   standings.forEach((s, i) => {
     const prev = standings[i - 1];
-    s.rank = prev && prev.points === s.points && prev.mean + prev.sd === s.mean + s.sd ? prev.rank : i + 1;
+    s.rank = prev && prev.score === s.score ? prev.rank : i + 1;
     s.gap = prev ? s.points - prev.points : null;
   });
   return { first, last, today, closedUntil, standings, anyPlayed: rows.some((r) => r.played) };
@@ -866,7 +868,7 @@ function standingsModule(stats) {
   const dash = (v) => (v == null ? "-" : v);
   const body = `<div class="scroll-x"><table class="standings">
       <thead><tr>
-        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Media + dev. std</th><th>Vinte</th>
+        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti + dev. std</th><th>Vinte</th>
         <th>Giocate</th><th>Miglior risultato</th><th>Peggiore risultato</th>
         ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<th>Ricorrenze ${k}</th>`).join("")}
       </tr></thead>
@@ -878,7 +880,7 @@ function standingsModule(stats) {
             <td class="pts">${s.points}</td>
             <td>${s.gap == null ? "-" : `+${s.gap}`}</td>
             <td>${s.played || s.missed ? decimals.format(s.mean) : "-"}</td>
-            <td>${s.played || s.missed ? decimals.format(s.mean + s.sd) : "-"}</td>
+            <td>${s.played || s.missed ? decimals.format(s.score) : "-"}</td>
             <td>${s.wins}</td>
             <td>${s.played}</td>
             <td>${dash(s.best)}</td>
@@ -888,7 +890,7 @@ function standingsModule(stats) {
         )
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">X/6 e giorno saltato valgono 7 punti. Vince chi ha meno punti; a parità di punti la classifica usa il valore <strong>media + deviazione standard</strong> (più basso è meglio), così non ci sono pari merito.</p>`;
+    <p class="muted small">X/6 e giorno saltato valgono 7 punti. Vince chi ha meno punti; la classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito.</p>`;
   return { body };
 }
 
