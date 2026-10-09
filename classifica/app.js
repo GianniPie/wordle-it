@@ -13,7 +13,10 @@ const state = {
   profile: null,
   groups: [],
   groupId: null,
-  month: null, // months since year 0: year * 12 + month
+  period: null, // months since year 0 (year * 12 + month), or "all" for the whole history
+  resultsFlipped: read("parle-results-flipped") === "1", // Risultati: players as rows
+  chartMode: "total", // Grafico: "total" or "gap" (distance from the leader)
+  distOpen: null, // Distribuzione: ids of the players shown open (null: only me)
   data: {}, // per group: { members, results }
   pendingJoin: null,
   pendingFrom: null, // id of the member who shared the invite link
@@ -237,7 +240,7 @@ async function route() {
   if (view.name === "new-group") return renderCreate();
   if (view.groupId && state.groups.some((g) => g.id === view.groupId)) state.groupId = view.groupId;
   if (!state.groupId) return renderNoGroups();
-  state.month = monthOfDate(new Date());
+  state.period = monthOfDate(new Date());
   loadGroup();
 }
 
@@ -686,117 +689,247 @@ async function submitCreate(form) {
 
 // ---------- statistics ----------
 
-function monthStats(data, month) {
-  const { first, last } = monthRange(month);
+// Days shown for the chosen period: a month, or everything since the group's first month ("all").
+function periodRange(group, period) {
   const today = dayNumber(new Date());
-  // Days already over in this month: a day nobody can play any more counts as missed if not played.
+  if (period === "all") return { first: monthRange(monthOfDate(new Date(group.created_at))).first, last: today };
+  return monthRange(period);
+}
+
+// Each player's day by day points for the period: played days, X/6 and skipped days (7),
+// and today only once played (it can still be played until midnight).
+function periodStats(data, first, last) {
+  const today = dayNumber(new Date());
   const closedUntil = Math.min(last, today - 1);
-  const closedDays = Math.max(0, closedUntil - first + 1);
-  const rows = new Map(
-    data.members.map((m) => [m.id, { ...m, points: 0, played: 0, playedClosed: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0] }])
-  );
-  for (const r of data.results) {
-    if (r.day < first || r.day > last) continue;
-    const row = rows.get(r.user_id);
-    if (!row) continue;
-    row.points += points(r);
-    row.played += 1;
-    if (r.day <= closedUntil) row.playedClosed += 1;
-    if (r.won) {
-      row.wins += 1;
-      row.guesses += r.num_guesses;
-      row.dist[r.num_guesses - 1] += 1;
-    } else {
-      row.dist[6] += 1;
+  const results = new Map(data.members.map((m) => [m.id, new Map()]));
+  for (const r of data.results) if (r.day >= first && r.day <= last) results.get(r.user_id)?.set(r.day, r);
+
+  const rows = data.members.map((m) => {
+    const mine = results.get(m.id);
+    const values = [];
+    const counts = [0, 0, 0, 0, 0, 0, 0, 0]; // index = points, 1..7
+    const dist = [0, 0, 0, 0, 0, 0, 0]; // 1..6 tries, then X/6
+    let played = 0, wins = 0, guesses = 0, missed = 0;
+    for (let d = first; d <= Math.min(last, today); d++) {
+      const r = mine.get(d);
+      let v;
+      if (r) {
+        v = points(r);
+        played += 1;
+        if (r.won) {
+          wins += 1;
+          guesses += r.num_guesses;
+          dist[r.num_guesses - 1] += 1;
+        } else {
+          dist[6] += 1;
+        }
+      } else if (d <= closedUntil) {
+        v = MISSED_DAY_POINTS;
+        missed += 1;
+      } else {
+        continue;
+      }
+      values.push(v);
+      counts[v] += 1;
     }
-  }
-  for (const row of rows.values()) {
-    row.missed = closedDays - row.playedClosed;
-    row.points += row.missed * MISSED_DAY_POINTS;
-  }
-  const anyPlayed = [...rows.values()].some((r) => r.played);
-  const standings = [...rows.values()].sort(
-    (a, b) =>
-      a.points - b.points ||
-      b.wins - a.wins ||
-      (a.wins ? a.guesses / a.wins : 9) - (b.wins ? b.guesses / b.wins : 9) ||
-      a.name.localeCompare(b.name)
-  );
-  // Same rank for players with the same points and wins.
+    const total = values.reduce((a, b) => a + b, 0);
+    const mean = values.length ? total / values.length : 0;
+    const sd = values.length ? Math.sqrt(values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length) : 0;
+    return {
+      ...m, results: mine, points: total, mean, sd, played, wins, guesses, missed, dist, counts,
+      best: values.length ? Math.min(...values) : null,
+      worst: values.length ? Math.max(...values) : null,
+    };
+  });
+
+  // Fewest points first; on equal points, the lower mean + standard deviation (steadier player) goes first.
+  const standings = rows.sort((a, b) => a.points - b.points || a.mean + a.sd - (b.mean + b.sd) || a.name.localeCompare(b.name));
   standings.forEach((s, i) => {
     const prev = standings[i - 1];
-    s.rank = prev && prev.points === s.points && prev.wins === s.wins ? prev.rank : i + 1;
+    s.rank = prev && prev.points === s.points && prev.mean + prev.sd === s.mean + s.sd ? prev.rank : i + 1;
+    s.gap = prev ? s.points - prev.points : null;
   });
-  return { first, last, today, standings, anyPlayed, finished: today > last };
+  return { first, last, today, closedUntil, standings, anyPlayed: rows.some((r) => r.played) };
 }
 
-function winnersOf(stats) {
-  if (!stats.anyPlayed) return [];
-  return stats.standings.filter((s) => s.rank === 1);
-}
+const decimals = new Intl.NumberFormat("it", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ---------- group page ----------
+
+// Order of the movable modules, remembered on this device. "Gruppo" is always last.
+const MODULES = {
+  standings: "Classifica",
+  results: "Risultati",
+  chart: "Grafico",
+  today: "Oggi",
+  distribution: "Distribuzione dei tentativi",
+};
+
+function moduleOrder() {
+  let saved = [];
+  try {
+    saved = JSON.parse(read("parle-modules") || "[]");
+  } catch {}
+  const known = Object.keys(MODULES);
+  return [...saved.filter((id) => known.includes(id)), ...known.filter((id) => !saved.includes(id))];
+}
 
 function renderGroup() {
   const group = currentGroup();
   const data = state.data[group.id];
-  const me = state.session.user.id;
   const firstMonth = monthOfDate(new Date(group.created_at));
   const thisMonth = monthOfDate(new Date());
-  const stats = monthStats(data, state.month);
-  const winners = winnersOf(stats);
+  if (state.period !== "all" && (state.period < firstMonth || state.period > thisMonth)) state.period = thisMonth;
+  const { first, last } = periodRange(group, state.period);
+  const stats = periodStats(data, first, last);
+  const showToday = state.period === "all" || state.period === thisMonth;
 
-  let banner;
-  if (stats.finished) {
-    banner = winners.length
-      ? `<div class="banner winner">🏆 ${winners.length > 1 ? "Vincitori" : "Vince"} ${esc(winners.map((w) => w.name).join(" e "))} con ${winners[0].points} punti</div>`
-      : `<div class="banner">Nessun vincitore questo mese</div>`;
-  } else {
-    const left = stats.last - stats.today + 1;
-    banner = winners.length
-      ? `<div class="banner">In testa: <strong>${esc(winners.map((w) => w.name).join(", "))}</strong> · ${left === 1 ? "ultimo giorno" : `mancano ${left} giorni`}</div>`
-      : `<div class="banner">Nessuno ha ancora giocato · mancano ${left} giorni</div>`;
-  }
+  const options = [`<option value="all"${state.period === "all" ? " selected" : ""}>Classifica globale</option>`];
+  for (let m = thisMonth; m >= firstMonth; m--) options.push(`<option value="${m}"${state.period === m ? " selected" : ""}>${monthLabel(m)}</option>`);
 
-  const table = `<table>
-      <thead><tr><th></th><th>Giocatore</th><th>Punti</th><th>Giocate</th><th>Saltate</th><th>Media</th></tr></thead>
+  const handle = `<button class="handle" aria-label="Sposta il modulo" title="Trascina per spostare">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 7a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-1.5 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18 5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-1.5 8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18 19a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></svg>
+    </button>`;
+  const builders = {
+    standings: () => standingsModule(stats),
+    results: () => resultsModule(stats),
+    chart: () => chartModule(stats),
+    today: () => (showToday ? todayModule(data, stats) : null),
+    distribution: () => distributionModule(stats),
+  };
+  const modules = moduleOrder()
+    .map((id) => {
+      const built = builders[id]();
+      if (!built) return "";
+      return `<section class="module" data-module="${id}">
+          <div class="module-head">${handle}<h2>${MODULES[id]}</h2>${built.controls || ""}</div>
+          <div class="module-body">${built.body}</div>
+        </section>`;
+    })
+    .join("");
+
+  renderShell(`<h1 class="group-title">${esc(group.name)}</h1>
+    <div class="period-picker">
+      <select class="period" aria-label="Periodo">${options.join("")}</select>
+    </div>
+    <div id="modules">${modules}</div>
+    <section class="module fixed">
+      <div class="module-head"><h2>Gruppo</h2></div>
+      <div class="module-body">${manageSection(group, data)}</div>
+    </section>`);
+
+  enableModuleDrag();
+  if (stats.anyPlayed) drawChart(stats);
+}
+
+function enableModuleDrag() {
+  if (!window.Sortable) return setTimeout(enableModuleDrag, 100);
+  const box = document.getElementById("modules");
+  if (!box) return;
+  window.Sortable.create(box, {
+    handle: ".handle",
+    animation: 150,
+    ghostClass: "module-ghost",
+    // Follow the finger or mouse directly instead of the browser's own drag and drop (unreliable on phones).
+    forceFallback: true,
+    fallbackTolerance: 3,
+    onEnd: () => {
+      const order = [...box.querySelectorAll(".module")].map((el) => el.dataset.module);
+      store("parle-modules", JSON.stringify(moduleOrder().filter((id) => !order.includes(id)).concat(order)));
+    },
+  });
+}
+
+function standingsModule(stats) {
+  const me = state.session.user.id;
+  const medal = (s) => (!stats.anyPlayed ? "" : s.rank === 1 ? "🥇" : s.rank === 2 ? "🥈" : s.rank === 3 ? "🥉" : s.rank);
+  const dash = (v) => (v == null ? "-" : v);
+  const body = `<div class="scroll-x"><table class="standings">
+      <thead><tr>
+        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Vinte</th>
+        <th>Giocate</th><th>Miglior risultato</th><th>Peggiore risultato</th>
+        ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<th>Ricorrenze ${k}</th>`).join("")}
+      </tr></thead>
       <tbody>${stats.standings
         .map(
           (s) => `<tr class="${s.id === me ? "me" : ""}">
-            <td class="pos">${stats.anyPlayed ? (s.rank === 1 ? "🥇" : s.rank === 2 ? "🥈" : s.rank === 3 ? "🥉" : s.rank) : ""}</td>
+            <td class="pos">${medal(s)}</td>
             <td class="name">${esc(s.name)}</td>
             <td class="pts">${s.points}</td>
+            <td>${s.gap == null ? "-" : `+${s.gap}`}</td>
+            <td>${s.played || s.missed ? decimals.format(s.mean) : "-"}</td>
+            <td>${s.wins}</td>
             <td>${s.played}</td>
-            <td>${s.missed}</td>
-            <td>${s.wins ? (s.guesses / s.wins).toFixed(1) : "-"}</td>
+            <td>${dash(s.best)}</td>
+            <td>${dash(s.worst)}</td>
+            ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<td>${s.counts[k]}</td>`).join("")}
           </tr>`
         )
         .join("")}</tbody>
-    </table>
-    <p class="muted small">Vince chi ha <strong>meno punti</strong>. Parola indovinata in N tentativi = N punti, non indovinata (X/6) = 7, giorno saltato = 7. La parola di oggi conta come saltata solo da domani. Media = tentativi medi per le parole indovinate.</p>`;
-
-  const anyPlayed = stats.anyPlayed;
-
-  renderShell(
-    `<h1 class="group-title">${esc(group.name)}</h1>
-    <div class="month">
-      <button data-action="month" data-step="-1" ${state.month <= firstMonth ? "disabled" : ""} aria-label="Mese precedente">‹</button>
-      <strong>${monthLabel(state.month)}</strong>
-      <button data-action="month" data-step="1" ${state.month >= thisMonth ? "disabled" : ""} aria-label="Mese successivo">›</button>
-    </div>
-    ${banner}
-    <h2>Classifica</h2>
-    ${table}
-    ${state.month === thisMonth ? todaySection(data, stats) : ""}
-    ${anyPlayed ? `<h2>Andamento dei punti</h2><div class="chart-box"><canvas id="chart"></canvas></div>` : ""}
-    ${anyPlayed ? `<h2>Distribuzione dei tentativi</h2>${distributionSection(stats)}` : ""}
-    ${hallOfFame(data, firstMonth, thisMonth)}
-    ${manageSection(group, data)}`);
-
-  if (anyPlayed) drawChart(stats);
+    </table></div>
+    <p class="muted small">Vince chi ha <strong>meno punti</strong>: parola indovinata in N tentativi = N punti, X/6 e giorno saltato = 7. A parità di punti passa avanti chi ha la media più la deviazione standard più bassa, cioè chi è stato più costante. La parola di oggi conta come saltata solo da domani. Scorri la tabella per vedere le altre colonne.</p>`;
+  return { body };
 }
 
-function todaySection(data, stats) {
+function resultsModule(stats) {
+  const me = state.session.user.id;
+  const players = [...stats.standings].sort((a, b) => (a.id === me ? -1 : b.id === me ? 1 : 0));
+  const iPlayedToday = players.find((p) => p.id === me)?.results.has(stats.today);
+  const days = [];
+  for (let d = stats.first; d <= stats.last; d++) days.push(d);
+
+  // What a cell shows: tries, X, - (skipped), ✓ (today, hidden until I play), or nothing (not yet).
+  const cell = (p, d) => {
+    const r = p.results.get(d);
+    if (r) {
+      if (d === stats.today && !iPlayedToday && p.id !== me) return { text: "✓", hidden: true };
+      return { text: r.won ? String(r.num_guesses) : "X", value: points(r) };
+    }
+    if (d <= stats.closedUntil) return { text: "-", value: MISSED_DAY_POINTS };
+    return { text: "" };
+  };
+  const grid = days.map((d) => {
+    const cells = players.map((p) => cell(p, d));
+    const values = cells.filter((c) => c.value != null).map((c) => c.value);
+    const best = Math.min(...values), worst = Math.max(...values);
+    cells.forEach((c) => {
+      if (c.value == null || best === worst) return;
+      if (c.value === best) c.mark = "best";
+      else if (c.value === worst) c.mark = "worst";
+    });
+    return cells;
+  });
+  const td = (c) => `<td class="${c.mark || ""}">${c.text}</td>`;
+  const dayLabel = (d) => `<th scope="row" class="${d === stats.today ? "is-today" : ""}">#${d}</th>`;
+  const name = (p) => `${esc(p.name)}${p.id === me ? " (tu)" : ""}`;
+
+  let table;
+  if (state.resultsFlipped) {
+    table = `<thead><tr><th></th>${days.map((d) => `<th class="${d === stats.today ? "is-today" : ""}">#${d}</th>`).join("")}</tr></thead>
+      <tbody>${players.map((p, i) => `<tr><th scope="row">${name(p)}</th>${grid.map((cells) => td(cells[i])).join("")}</tr>`).join("")}</tbody>`;
+  } else {
+    table = `<thead><tr><th>Parola</th>${players.map((p) => `<th>${name(p)}</th>`).join("")}</tr></thead>
+      <tbody>${days.map((d, j) => `<tr>${dayLabel(d)}${grid[j].map(td).join("")}</tr>`).join("")}</tbody>`;
+  }
+  const controls = `<button class="chip" data-action="flip-results" aria-pressed="${!!state.resultsFlipped}" title="Scambia righe e colonne">⇄ Ruota</button>`;
+  return {
+    controls,
+    body: `<div class="scroll-x results-wrap"><table class="results">${table}</table></div>
+      <p class="muted small">In verde il miglior risultato del giorno, in rosso il peggiore. X = non indovinata, - = saltata.</p>`,
+  };
+}
+
+function chartModule(stats) {
+  if (!stats.anyPlayed) return { body: `<p class="muted">Ancora nessuna partita in questo periodo.</p>` };
+  const mode = state.chartMode || "total";
+  const choice = (value, label) => `<button role="radio" aria-checked="${mode === value}" data-action="chart-mode" data-value="${value}">${label}</button>`;
+  return {
+    body: `<div class="segmented small" role="radiogroup" aria-label="Tipo di grafico">${choice("total", "Andamento dei punti")}${choice("gap", "Distanza dal primo")}</div>
+      <div class="chart-box"><canvas id="chart"></canvas></div>`,
+  };
+}
+
+function todayModule(data, stats) {
   const me = state.session.user.id;
   const todays = new Map(data.results.filter((r) => r.day === stats.today).map((r) => [r.user_id, r]));
   const iPlayed = todays.has(me);
@@ -810,13 +943,17 @@ function todaySection(data, stats) {
       return `<li><span>${esc(m.name)}</span><span>${text}</span></li>`;
     })
     .join("");
-  return `<h2>Oggi</h2><ul class="today">${items}</ul>
-    ${iPlayed ? "" : `<p class="muted small">Gioca la parola di oggi per vedere come è andata agli altri. <a href="../">Vai al gioco</a></p>`}`;
+  return {
+    body: `<ul class="today">${items}</ul>
+      ${iPlayed ? "" : `<p class="muted small">Gioca la parola di oggi per vedere come è andata agli altri. <a href="../">Vai al gioco</a></p>`}`,
+  };
 }
 
-function distributionSection(stats) {
-  return stats.standings
-    .filter((s) => s.played)
+function distributionModule(stats) {
+  const me = state.session.user.id;
+  const players = stats.standings.filter((s) => s.played || s.missed);
+  if (!players.length) return { body: `<p class="muted">Ancora nessuna partita in questo periodo.</p>` };
+  const body = players
     .map((s) => {
       // 1-6 tries, X/6, and days skipped ("-").
       const counts = [...s.dist, s.missed];
@@ -830,29 +967,11 @@ function distributionSection(stats) {
             <div class="bar ${i === best && n ? "best" : ""}" style="width:${Math.max(8, (100 * n) / max)}%">${n}</div></div>`
         )
         .join("");
-      return `<div class="dist"><div class="who">${esc(s.name)}</div>${rows}</div>`;
+      const open = state.distOpen?.has(s.id) ?? s.id === me;
+      return `<details class="dist" data-player="${s.id}"${open ? " open" : ""}><summary class="who">${esc(s.name)}</summary>${rows}</details>`;
     })
     .join("");
-}
-
-function hallOfFame(data, firstMonth, thisMonth) {
-  const titles = new Map();
-  const lines = [];
-  for (let m = thisMonth - 1; m >= firstMonth; m--) {
-    const winners = winnersOf(monthStats(data, m));
-    winners.forEach((w) => titles.set(w.name, (titles.get(w.name) || 0) + 1));
-    lines.push(
-      `<li><strong>${monthLabel(m)}</strong>: ${winners.length ? `${esc(winners.map((w) => w.name).join(" e "))} (${winners[0].points} punti)` : `<span class="muted">nessuno</span>`}</li>`
-    );
-  }
-  if (!lines.length) return "";
-  const totals = [...titles.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, n]) => `${esc(name)} ${"🏆".repeat(Math.min(n, 5))}${n > 5 ? " ×" + n : ""}`)
-    .join(" · ");
-  return `<h2>Albo d'oro</h2>
-    ${totals ? `<p>${totals}</p>` : ""}
-    <ul class="hall">${lines.join("")}</ul>`;
+  return { body };
 }
 
 function drawChart(stats) {
@@ -866,33 +985,47 @@ function drawChart(stats) {
   const css = getComputedStyle(document.documentElement);
   const textColor = css.getPropertyValue("--color-tone-2").trim();
   const gridColor = css.getPropertyValue("--color-tone-4").trim();
-  const players = stats.standings.filter((s) => s.played);
-  const datasets = players.map((s) => {
-    const byDay = new Map(data.results.filter((r) => r.user_id === s.id).map((r) => [r.day, points(r)]));
+  const players = stats.standings.filter((s) => s.played || s.missed);
+  // Running total per player and day (skipped days count from the day after).
+  const totals = players.map((s) => {
     let total = 0;
-    const dayPoints = (d) => byDay.get(d) ?? (d < stats.today ? MISSED_DAY_POINTS : 0);
+    return days.map((d) => {
+      const r = s.results.get(d);
+      total += r ? points(r) : d <= stats.closedUntil ? MISSED_DAY_POINTS : 0;
+      return total;
+    });
+  });
+  const gap = (state.chartMode || "total") === "gap";
+  const leader = days.map((_, i) => Math.min(...totals.map((t) => t[i])));
+  const datasets = players.map((s, p) => {
     const color = LINE_COLORS[data.members.findIndex((m) => m.id === s.id) % LINE_COLORS.length];
     return {
       label: s.name,
-      data: days.map((d) => (total += dayPoints(d))),
+      data: gap ? totals[p].map((v, i) => v - leader[i]) : totals[p],
       borderColor: color,
       backgroundColor: color,
       borderWidth: 2.5,
       pointRadius: 0,
       pointHoverRadius: 4,
-      tension: 0.25,
+      tension: gap ? 0 : 0.25,
     };
   });
   if (state.chart) state.chart.destroy();
   state.chart = new window.Chart(canvas, {
     type: "line",
-    data: { labels: days.map((d) => dayDate(d).getUTCDate()), datasets },
+    data: { labels: days.map((d) => (state.period === "all" ? `#${d}` : dayDate(d).getUTCDate())), datasets },
     options: {
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { position: "bottom", labels: { color: textColor, boxWidth: 12, boxHeight: 12 } },
-        tooltip: { itemSort: (a, b) => b.parsed.y - a.parsed.y, callbacks: { title: (items) => `Giorno ${items[0].label}` } },
+        tooltip: {
+          itemSort: (a, b) => a.parsed.y - b.parsed.y,
+          callbacks: {
+            title: (items) => (state.period === "all" ? `Parola ${items[0].label}` : `Giorno ${items[0].label}`),
+            label: (item) => ` ${item.dataset.label}: ${gap ? (item.parsed.y ? `+${item.parsed.y}` : "in testa") : `${item.parsed.y} punti`}`,
+          },
+        },
       },
       scales: {
         x: { ticks: { color: textColor, maxTicksLimit: 10 }, grid: { display: false } },
@@ -911,8 +1044,7 @@ function manageSection(group, data) {
         ${isOwner && m.id !== me ? `<button class="link danger small" data-action="remove" data-id="${m.id}" data-name="${esc(m.name)}">Rimuovi</button>` : ""}</li>`
     )
     .join("");
-  return `<h2>Gruppo</h2>
-    <div class="card">
+  return `<div>
       <p style="margin-top:0"><strong>Invita gli amici</strong><br><span class="muted small">Chi apre questo link può entrare nel gruppo.</span></p>
       <div class="invite">
         <code>${esc(inviteUrl(group.invite_code))}</code>
@@ -981,8 +1113,13 @@ const actions = {
     store("parle-group", null);
     store("parle-name", null);
   },
-  month: (el) => {
-    state.month += Number(el.dataset.step);
+  "flip-results": () => {
+    state.resultsFlipped = !state.resultsFlipped;
+    store("parle-results-flipped", state.resultsFlipped ? "1" : null);
+    renderGroup();
+  },
+  "chart-mode": (el) => {
+    state.chartMode = el.dataset.value;
     renderGroup();
   },
   share: shareInvite,
@@ -1069,6 +1206,25 @@ $app.addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");
   if (el && !el.disabled) actions[el.dataset.action]?.(el);
 });
+
+$app.addEventListener("change", (e) => {
+  if (e.target.matches("select.period")) {
+    state.period = e.target.value === "all" ? "all" : Number(e.target.value);
+    renderGroup();
+  }
+});
+
+// Remember which players are open in "Distribuzione dei tentativi" ("toggle" does not bubble).
+$app.addEventListener(
+  "toggle",
+  (e) => {
+    const el = e.target;
+    if (!el.matches?.("details.dist")) return;
+    if (!state.distOpen) state.distOpen = new Set([...$app.querySelectorAll("details.dist[open]")].map((d) => d.dataset.player));
+    el.open ? state.distOpen.add(el.dataset.player) : state.distOpen.delete(el.dataset.player);
+  },
+  true
+);
 
 $app.addEventListener("submit", (e) => {
   e.preventDefault();
