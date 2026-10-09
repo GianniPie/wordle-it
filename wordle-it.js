@@ -1371,8 +1371,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                           var a;
                           if (e >= "a" && e <= "z" || "←" === e || "↵" === e) {
                               if ((a = ns.content.cloneNode(!0).firstElementChild).dataset.key = e, a.textContent = e, "←" === e) {
-                                  var t = document.createElement("game-icon");
-                                  t.setAttribute("icon", "backspace"), a.textContent = "", a.appendChild(t), a.classList.add("one-and-a-half")
+                                  a.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block"><path d="M21 5H9.2a1 1 0 0 0-.76.35L3 12l5.44 6.65a1 1 0 0 0 .76.35H21a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M11.5 9l6 6M17.5 9l-6 6"/></svg>', a.setAttribute("aria-label", "Cancella"), a.classList.add("one-and-a-half")
                               }
                               "↵" == e && (a.textContent = "invio", a.classList.add("one-and-a-half"))
                           } else(a = is.content.cloneNode(!0).firstElementChild).classList.add(1 === e.length ? "half" : "one");

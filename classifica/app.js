@@ -340,47 +340,43 @@ function applyTheme() {
 function renderSettings() {
   const gs = readGameState();
   const mode = themeMode();
-  const setting = (name, title, description, checked) => `<label class="setting">
+  // Every setting is a row of buttons in one rounded group, the chosen one in green.
+  const choice = (setting, value, label, on) =>
+    `<button role="radio" aria-checked="${on}" data-action="setting" data-setting="${setting}" data-value="${value}">${label}</button>`;
+  const row = (title, description, buttons) => `<div class="setting stacked">
       <span class="text"><span class="title">${title}</span>${description ? `<span class="description">${description}</span>` : ""}</span>
-      <input type="checkbox" class="switch" role="switch" data-setting="${name}" ${checked ? "checked" : ""} />
-    </label>`;
-  const themeButton = (value, label) =>
-    `<button role="radio" aria-checked="${mode === value}" data-action="theme" data-value="${value}">${label}</button>`;
+      <div class="segmented" role="radiogroup" aria-label="${title}">${buttons}</div>
+    </div>`;
+  const onOff = (setting, on) => choice(setting, "off", "Disattivo", !on) + choice(setting, "on", "Attivo", on);
   renderShell(`<h2>Impostazioni</h2>
     <div class="settings">
-      ${setting("hard-mode", "Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", !!gs.hardMode)}
-      <div class="setting stacked">
-        <span class="text"><span class="title">Tema</span><span class="description">"Sistema" segue le impostazioni del telefono</span></span>
-        <div class="segmented" role="radiogroup" aria-label="Tema">
-          ${themeButton("light", "Chiaro")}${themeButton("dark", "Scuro")}${themeButton("system", "Sistema")}
-        </div>
-      </div>
-      ${readFlag("colorBlindTheme") ? setting("color-blind-theme", "Colori ad alto contrasto", "", true) : ""}
+      ${row("Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", onOff("hard-mode", !!gs.hardMode))}
+      ${row("Tema", '"Sistema" segue le impostazioni del telefono',
+        choice("theme", "light", "Chiaro", mode === "light") + choice("theme", "dark", "Scuro", mode === "dark") + choice("theme", "system", "Sistema", mode === "system"))}
+      ${readFlag("colorBlindTheme") ? row("Colori ad alto contrasto", "", onOff("color-blind-theme", true)) : ""}
     </div>`);
 }
 
-function changeSetting(input) {
-  const on = input.checked;
-  switch (input.dataset.setting) {
+function changeSetting(setting, value) {
+  const on = value === "on";
+  switch (setting) {
+    case "theme":
+      store("darkTheme", value === "system" ? null : JSON.stringify(value === "dark"));
+      applyTheme();
+      break;
     case "color-blind-theme":
       store("colorBlindTheme", JSON.stringify(on));
       document.documentElement.classList.toggle("colorblind", on);
       break;
     case "hard-mode": {
       const gs = readGameState();
-      if (on && hardModeLocked(gs)) {
-        input.checked = false;
-        return toast("Si può attivare 'il gioco si fa duro' solo all'inizio di una partita", 3000);
-      }
+      if (on && hardModeLocked(gs)) return toast("Si può attivare 'il gioco si fa duro' solo all'inizio di una partita", 3000);
       store("gameState", JSON.stringify({ ...gs, hardMode: on }));
       break;
     }
   }
+  renderSettings();
 }
-
-$app.addEventListener("change", (e) => {
-  if (e.target.matches("input[data-setting]")) changeSetting(e.target);
-});
 
 function renderNeedLogin() {
   $app.innerHTML = `<h2>Classifiche</h2>
@@ -930,12 +926,7 @@ const actions = {
     navigate("./", true);
   },
   "cancel-create": () => navigate("./"),
-  theme: (el) => {
-    const value = el.dataset.value;
-    store("darkTheme", value === "system" ? null : JSON.stringify(value === "dark"));
-    applyTheme();
-    renderSettings();
-  },
+  setting: (el) => changeSetting(el.dataset.setting, el.dataset.value),
   logout: async () => {
     await sb.auth.signOut();
     state.data = {};
