@@ -92,6 +92,7 @@ function redirectUrl() {
 function currentView() {
   const params = new URLSearchParams(location.search);
   if (params.has("come-giocare")) return { name: "help" };
+  if (params.has("impostazioni")) return { name: "settings" };
   if (params.has("account")) return { name: "account" };
   if (params.has("nuovo")) return { name: "new-group" };
   return { name: "groups", groupId: params.get("gruppo") };
@@ -146,15 +147,15 @@ async function init() {
 
 async function route() {
   let view = currentView();
-  if (view.name === "help") {
-    // Readable without an account; the menu uses the groups the game page remembered.
+  if (view.name === "help" || view.name === "settings") {
+    // Usable without an account; the menu uses the groups the game page remembered.
     if (state.session && !state.groups.length) {
       try {
         state.groups = JSON.parse(read("parle-groups") || "[]");
       } catch {}
     }
     renderMenu();
-    return renderHelp();
+    return view.name === "help" ? renderHelp() : renderSettings();
   }
   if (!state.session) {
     state.groups = [];
@@ -211,10 +212,10 @@ function renderMenu() {
   $menu.innerHTML = `
     <a class="item" href="../">${icon("M8 5v14l11-7z")}Gioca</a>
     <a class="item" data-nav href="?come-giocare"${current(view.name === "help")}>${icon("M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z")}Come giocare</a>
-    <a class="item" data-nav href="./">${icon("M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z")}Classifiche</a>
+    <a class="item" data-nav href="./"${current(view.name === "groups" && !(state.session && state.groupId))}>${icon("M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z")}Classifiche</a>
     ${groups}
     <a class="item" data-nav href="?account"${current(view.name === "account")}>${icon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z")}Account</a>
-    <a class="item" href="../#impostazioni">${icon("M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z")}Impostazioni</a>`;
+    <a class="item" data-nav href="?impostazioni"${current(view.name === "settings")}>${icon("M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z")}Impostazioni</a>`;
 }
 
 function closeMenu() {
@@ -253,6 +254,75 @@ function renderHelp() {
     <p><strong>Un nuovo gioco di PAR🇮🇹LE ogni giorno!</strong></p>
     <p><a class="button primary" href="../">Gioca</a></p>`);
 }
+
+// ---------- settings (stored where the game reads them) ----------
+
+function readGameState() {
+  try {
+    return JSON.parse(read("gameState") || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function readFlag(key) {
+  try {
+    return !!JSON.parse(read(key));
+  } catch {
+    return false;
+  }
+}
+
+// Like the game: hard mode can only be switched on before the first guess of the day.
+function hardModeLocked(gs) {
+  return !gs.hardMode && gs.gameStatus === "IN_PROGRESS" && gs.rowIndex > 0;
+}
+
+function renderSettings() {
+  const gs = readGameState();
+  const setting = (name, title, description, checked) => `<label class="setting">
+      <span class="text"><span class="title">${title}</span>${description ? `<span class="description">${description}</span>` : ""}</span>
+      <input type="checkbox" class="switch" role="switch" data-setting="${name}" ${checked ? "checked" : ""} />
+    </label>`;
+  renderShell(`<h2>Impostazioni</h2>
+    <div class="settings">
+      ${setting("hard-mode", "Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", !!gs.hardMode)}
+      ${setting("dark-theme", "Tema nero", "", readFlag("darkTheme"))}
+      ${setting("color-blind-theme", "Colori ad alto contrasto", "", readFlag("colorBlindTheme"))}
+      <div class="setting">
+        <span class="text"><span class="title">Feedback</span></span>
+        <span><a href="https://github.com/pietroppeter/wordle-it/issues/new" target="_blank" rel="noopener">Github</a> | <a href="https://twitter.com/intent/tweet?screen_name=pietroppeter" target="_blank" rel="noopener">Twitter</a></span>
+      </div>
+    </div>
+    <p class="muted small" style="text-align:right">#${dayNumber(new Date())}</p>`);
+}
+
+function changeSetting(input) {
+  const on = input.checked;
+  switch (input.dataset.setting) {
+    case "dark-theme":
+      store("darkTheme", JSON.stringify(on));
+      document.documentElement.classList.toggle("nightmode", on);
+      break;
+    case "color-blind-theme":
+      store("colorBlindTheme", JSON.stringify(on));
+      document.documentElement.classList.toggle("colorblind", on);
+      break;
+    case "hard-mode": {
+      const gs = readGameState();
+      if (on && hardModeLocked(gs)) {
+        input.checked = false;
+        return toast("Si può attivare 'il gioco si fa duro' solo all'inizio di una partita", 3000);
+      }
+      store("gameState", JSON.stringify({ ...gs, hardMode: on }));
+      break;
+    }
+  }
+}
+
+$app.addEventListener("change", (e) => {
+  if (e.target.matches("input[data-setting]")) changeSetting(e.target);
+});
 
 function renderNeedLogin() {
   $app.innerHTML = `<h2>Classifiche</h2>
