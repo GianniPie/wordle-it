@@ -34,26 +34,14 @@ async function treccaniEntry(slug: string): Promise<string | null> {
     .toLowerCase();
 }
 
-// Address of the Treccani entry for the lemma. Words with several unrelated meanings have no
-// "parola/" page but "parola1/", "parola2/"...: the one closest to the Wiktionary meanings is chosen,
-// or Treccani's search page (listing them all) when it is not clear which one.
-async function treccaniUrl(lemma: string, senses: string[] | null): Promise<string> {
+// Address of the Treccani entry for the lemma. Words with several unrelated meanings have no "parola/"
+// page but "parola1/", "parola2/"... with no links between them: then Treccani's search page, which lists
+// them all (the app labels it "Tutti i significati su Treccani").
+async function treccaniUrl(lemma: string): Promise<string> {
   if (await treccaniEntry(lemma)) return `${TRECCANI}${encodeURIComponent(lemma)}/`;
-  const words = new Set(
-    (senses ?? []).join(" ").toLowerCase().split(/[^a-zàèéìòóù]+/).filter((w) => w.length >= 4 && w !== lemma)
-  );
-  const scored: { n: number; score: number }[] = [];
-  for (let n = 1; n <= 6; n++) {
-    const text = await treccaniEntry(`${lemma}${n}`);
-    if (text === null) break;
-    let score = 0;
-    for (const w of words) if (text.includes(w)) score++;
-    scored.push({ n, score });
-  }
-  scored.sort((a, b) => b.score - a.score);
-  if (scored.length === 1 || (scored.length > 1 && scored[0].score > 0 && scored[0].score > scored[1].score)) {
-    return `${TRECCANI}${encodeURIComponent(`${lemma}${scored[0].n}`)}/`;
-  }
+  const first = await treccaniEntry(`${lemma}1`);
+  const second = first !== null && (await treccaniEntry(`${lemma}2`));
+  if (first !== null && !second) return `${TRECCANI}${encodeURIComponent(`${lemma}1`)}/`;
   return `${TRECCANI}ricerca/${encodeURIComponent(lemma)}/`;
 }
 
@@ -105,7 +93,7 @@ function baseWord(line: string): string | null {
 // Wiktionary meanings and the Treccani address (also when Wiktionary has nothing).
 async function prepare(word: string): Promise<Definition> {
   const def = await lookup(word);
-  return def.treccani_url ? def : { ...def, treccani_url: await treccaniUrl(word, null) };
+  return def.treccani_url ? def : { ...def, treccani_url: await treccaniUrl(word) };
 }
 
 async function lookup(word: string): Promise<Definition> {
@@ -128,7 +116,7 @@ async function lookup(word: string): Promise<Definition> {
       form_of: plain(lines[0]),
       senses: baseSenses.length ? baseSenses : null,
       source_url: `https://it.wiktionary.org/wiki/${encodeURIComponent(base)}`,
-      treccani_url: await treccaniUrl(base, baseSenses),
+      treccani_url: await treccaniUrl(base),
     };
   }
   const senses = lines.map(plain).filter(Boolean).slice(0, MAX_SENSES);
@@ -139,7 +127,7 @@ async function lookup(word: string): Promise<Definition> {
     form_of: null,
     senses,
     source_url: `https://it.wiktionary.org/wiki/${encodeURIComponent(word)}`,
-    treccani_url: await treccaniUrl(word, senses),
+    treccani_url: await treccaniUrl(word),
   };
 }
 

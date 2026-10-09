@@ -194,7 +194,10 @@ async function showDefinition(el, day, word) {
   const lemma = d?.lemma || word;
   // The server finds the right entry ("parola1/" for words with several entries); the plain address otherwise.
   const treccaniUrl = d?.treccani_url || `https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/`;
-  const treccani = `<a class="treccani" href="${esc(treccaniUrl)}${treccaniUrl.includes("/ricerca/") ? "" : "#vocabolario"}" target="_blank" rel="noopener">Apri su Treccani</a>`;
+  const all = treccaniUrl.includes("/ricerca/"); // several entries: Treccani's page listing them all
+  const treccani = `<a class="treccani" href="${esc(treccaniUrl)}${all ? "" : "#vocabolario"}" target="_blank" rel="noopener">${
+    all ? "Tutti i significati su Treccani" : "Apri su Treccani"
+  }</a>`;
   const title = `<p class="word">${esc(word)}</p>`;
   if (!d || d.status !== "ok" || !d.senses?.length) {
     el.innerHTML = `${title}<p class="none">Definizione non disponibile.</p>${treccani}`;
