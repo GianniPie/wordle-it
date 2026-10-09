@@ -14,7 +14,48 @@ type Definition = {
   form_of: string | null;
   senses: string[] | null;
   source_url: string | null;
+  treccani_url: string | null;
 };
+
+const TRECCANI = "https://www.treccani.it/vocabolario/";
+
+// Text of a Treccani vocabulary entry, or null when there is no entry with that address
+// (Treccani then sends the visitor to its home page).
+async function treccaniEntry(slug: string): Promise<string | null> {
+  const res = await fetch(`${TRECCANI}${encodeURIComponent(slug)}/`, { headers: { "User-Agent": UA } });
+  if (!res.ok || !res.url.includes("/vocabolario/")) return null;
+  const html = await res.text();
+  const at = html.indexOf("Dal vocabolario");
+  if (at < 0) return null;
+  return html
+    .slice(at, at + 20000)
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .toLowerCase();
+}
+
+// Address of the Treccani entry for the lemma. Words with several unrelated meanings have no
+// "parola/" page but "parola1/", "parola2/"...: the one closest to the Wiktionary meanings is chosen,
+// or Treccani's search page (listing them all) when it is not clear which one.
+async function treccaniUrl(lemma: string, senses: string[] | null): Promise<string> {
+  if (await treccaniEntry(lemma)) return `${TRECCANI}${encodeURIComponent(lemma)}/`;
+  const words = new Set(
+    (senses ?? []).join(" ").toLowerCase().split(/[^a-zàèéìòóù]+/).filter((w) => w.length >= 4 && w !== lemma)
+  );
+  const scored: { n: number; score: number }[] = [];
+  for (let n = 1; n <= 6; n++) {
+    const text = await treccaniEntry(`${lemma}${n}`);
+    if (text === null) break;
+    let score = 0;
+    for (const w of words) if (text.includes(w)) score++;
+    scored.push({ n, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  if (scored.length === 1 || (scored.length > 1 && scored[0].score > 0 && scored[0].score > scored[1].score)) {
+    return `${TRECCANI}${encodeURIComponent(`${lemma}${scored[0].n}`)}/`;
+  }
+  return `${TRECCANI}ricerca/${encodeURIComponent(lemma)}/`;
+}
 
 // The page's wikitext, or null when Wiktionary has no page with that title.
 async function wikitext(title: string): Promise<string | null> {
@@ -61,8 +102,14 @@ function baseWord(line: string): string | null {
   return m ? m[2].trim() : null;
 }
 
+// Wiktionary meanings and the Treccani address (also when Wiktionary has nothing).
+async function prepare(word: string): Promise<Definition> {
+  const def = await lookup(word);
+  return def.treccani_url ? def : { ...def, treccani_url: await treccaniUrl(word, null) };
+}
+
 async function lookup(word: string): Promise<Definition> {
-  const missing: Definition = { status: "missing", lemma: null, form_of: null, senses: null, source_url: null };
+  const missing: Definition = { status: "missing", lemma: null, form_of: null, senses: null, source_url: null, treccani_url: null };
   const text = await wikitext(word);
   const section = text && italian(text);
   if (!section) return missing;
@@ -81,17 +128,25 @@ async function lookup(word: string): Promise<Definition> {
       form_of: plain(lines[0]),
       senses: baseSenses.length ? baseSenses : null,
       source_url: `https://it.wiktionary.org/wiki/${encodeURIComponent(base)}`,
+      treccani_url: await treccaniUrl(base, baseSenses),
     };
   }
   const senses = lines.map(plain).filter(Boolean).slice(0, MAX_SENSES);
   if (!senses.length) return missing;
-  return { status: "ok", lemma: word, form_of: null, senses, source_url: `https://it.wiktionary.org/wiki/${encodeURIComponent(word)}` };
+  return {
+    status: "ok",
+    lemma: word,
+    form_of: null,
+    senses,
+    source_url: `https://it.wiktionary.org/wiki/${encodeURIComponent(word)}`,
+    treccani_url: await treccaniUrl(word, senses),
+  };
 }
 
 Deno.serve(async (req) => {
   // Read-only check of one word: ?parola=corra (nothing is saved).
   const test = new URL(req.url).searchParams.get("parola");
-  if (test) return Response.json(await lookup(test.toLowerCase()));
+  if (test) return Response.json(await prepare(test.toLowerCase()));
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
@@ -103,7 +158,7 @@ Deno.serve(async (req) => {
   const failed: unknown[] = [];
   for (const { day, word } of todo as { day: number; word: string }[]) {
     try {
-      const def = await lookup(word);
+      const def = await prepare(word);
       const { error: e } = await sb.from("definitions").upsert({ day, word, ...def, fetched_at: new Date().toISOString() });
       if (e) throw new Error(e.message);
       saved.push({ day, word, status: def.status });

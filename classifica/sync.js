@@ -159,9 +159,10 @@ function loadDefinition(day) {
   if (definitions[day]) return definitions[day];
   try {
     const kept = JSON.parse(read("parle-definition") || "null");
-    if (kept?.day === day && kept.data) return (definitions[day] = Promise.resolve(kept.data));
+    // A copy kept before the Treccani address existed is asked again.
+    if (kept?.day === day && kept.data?.treccani_url) return (definitions[day] = Promise.resolve(kept.data));
   } catch {}
-  definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url`, {
+  definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url,treccani_url`, {
     headers: { apikey: SUPABASE_KEY },
   })
     .then((res) => (res.ok ? res.json() : []))
@@ -191,7 +192,9 @@ async function showDefinition(el, day, word) {
   if (!el) return;
   const d = await loadDefinition(day);
   const lemma = d?.lemma || word;
-  const treccani = `<a class="treccani" href="https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/#vocabolario" target="_blank" rel="noopener">Apri su Treccani</a>`;
+  // The server finds the right entry ("parola1/" for words with several entries); the plain address otherwise.
+  const treccaniUrl = d?.treccani_url || `https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/`;
+  const treccani = `<a class="treccani" href="${esc(treccaniUrl)}${treccaniUrl.includes("/ricerca/") ? "" : "#vocabolario"}" target="_blank" rel="noopener">Apri su Treccani</a>`;
   const title = `<p class="word">${esc(word)}</p>`;
   if (!d || d.status !== "ok" || !d.senses?.length) {
     el.innerHTML = `${title}<p class="none">Definizione non disponibile.</p>${treccani}`;
