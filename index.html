@@ -128,11 +128,15 @@
         --key-bg-correct: var(--color-correct);
         --key-bg-absent: var(--color-absent);
       }
+      /* 100dvh: the part of the screen really visible in a phone browser (100% counts the address bar too,
+         so the page scrolled by that much) */
       html {
         height: 100%;
+        height: 100dvh;
       }
       body {
         height: 100%;
+        height: 100dvh;
         background-color: var(--color-background);
         margin: 0;
         padding: 0;

@@ -60,7 +60,8 @@ html, body {
   background: var(--color-tone-7);
   color: var(--color-tone-1);
 }
-body { min-height: 100vh; }
+/* dvh: only the visible part of the screen, without the phone browser's address bar */
+body { min-height: 100vh; min-height: 100dvh; }
 
 /* Header and menu: same look as the game's. */
 header {
