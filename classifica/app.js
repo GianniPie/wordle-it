@@ -472,23 +472,24 @@ async function renderStats() {
     .join("");
   renderShell(`<h1 class="page-title">Le mie statistiche</h1>
     <section class="module stats-summary">
+      <div class="module-head"><h2>Riepilogo</h2></div>
       <div class="stat-grid two">
         ${number(stats.played, "Giocate")}
-        ${number(stats.played ? `${Math.round((100 * stats.wins) / stats.played)}%` : "-", "Vittorie")}
+        ${number(stats.played ? decimals.format(stats.avgResult) : "-", "Media risultati")}
       </div>
       <div class="stat-grid two">
-        ${number(stats.best, "Serie migliore")}
-        ${number(stats.worst ?? "-", "Serie peggiore")}
+        ${number(stats.bestResult ? `${stats.bestResult}/6` : "-", "Risultato migliore")}
+        ${number(stats.daysInRow ?? "-", "Giorni consecutivi")}
       </div>
       <div class="stat-grid three">
         ${number(time(stats.timeBest), "Tempo migliore")}
         ${number(time(stats.timeWorst), "Tempo peggiore")}
         ${number(time(stats.timeAverage), "Tempo medio")}
       </div>
-      <h2>Oggi</h2>
+      <h2 class="today-title">Oggi</h2>
       <div class="stat-grid two">
-        ${number(stats.current, "Serie di oggi")}
-        ${number(time(stats.timeToday), "Tempo di oggi")}
+        ${number(stats.todayResult || "-", "Risultato")}
+        ${number(time(stats.timeToday), "Tempo")}
       </div>
     </section>
     <section class="module">
@@ -530,7 +531,10 @@ function accountStats(rows) {
   const timed = rows.filter((r) => r.won && r.play_ms > 0).map((r) => r.play_ms);
   return {
     played: rows.length, wins, guesses, dist, current, best,
-    worst: worstSeries(rows, today),
+    avgResult: rows.length ? rows.reduce((a, r) => a + points(r), 0) / rows.length : null,
+    bestResult: wins ? dist.findIndex((n, i) => i < 6 && n > 0) + 1 : null,
+    daysInRow: daysInRow(rows, today),
+    todayResult: resultText(rows.find((r) => r.day === today)),
     timeToday: rows.find((r) => r.day === today)?.play_ms || null,
     timeBest: timed.length ? Math.min(...timed) : null,
     timeWorst: timed.length ? Math.max(...timed) : null,
@@ -538,18 +542,18 @@ function accountStats(rows) {
   };
 }
 
-// Most days in a row without guessing the word (X/6 or a day not played), from the first game to yesterday
-// (today too once played).
-function worstSeries(rows, today) {
-  if (!rows.length) return 0;
-  const won = new Map(rows.map((r) => [r.day, r.won]));
-  const end = won.has(today) ? today : today - 1;
-  let worst = 0, run = 0;
-  for (let d = rows[0].day; d <= end; d++) {
-    run = won.get(d) ? 0 : run + 1;
-    worst = Math.max(worst, run);
-  }
-  return worst;
+// Days in a row with a game played (won or not), up to today, or up to yesterday while today is still to play.
+function daysInRow(rows, today) {
+  const days = new Set(rows.map((r) => r.day));
+  let d = days.has(today) ? today : today - 1;
+  let n = 0;
+  while (days.has(d)) (n += 1), (d -= 1);
+  return n;
+}
+
+// "4/6" or "X/6"
+function resultText(r) {
+  return r ? `${r.won ? r.num_guesses : "X"}/6` : null;
 }
 
 // 2:05 or 1:02:05
@@ -569,16 +573,23 @@ function deviceStats() {
   const timeAverage = won.length ? won.reduce((a, t) => a + t.ms, 0) / won.length : null;
   const timeBest = won.length ? Math.min(...won.map((t) => t.ms)) : null;
   const timeWorst = won.length ? Math.max(...won.map((t) => t.ms)) : null;
-  if (!s) return { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], current: 0, best: 0, worst: null, timeToday, timeBest, timeWorst, timeAverage };
+  const gs = readGameState();
+  const todayResult =
+    gs.lastPlayedTs && dayNumber(new Date(gs.lastPlayedTs)) === dayNumber(new Date()) && ["WIN", "FAIL"].includes(gs.gameStatus)
+      ? `${gs.gameStatus === "WIN" ? gs.rowIndex : "X"}/6`
+      : null;
+  const empty = { played: 0, wins: 0, guesses: 0, dist: [0, 0, 0, 0, 0, 0, 0], avgResult: null, bestResult: null };
+  if (!s) return { ...empty, daysInRow: null, todayResult, timeToday, timeBest, timeWorst, timeAverage };
   const dist = [1, 2, 3, 4, 5, 6].map((k) => s.guesses?.[k] || 0).concat(s.guesses?.fail || 0);
   return {
     played: s.gamesPlayed || 0,
     wins: s.gamesWon || 0,
     guesses: dist.slice(0, 6).reduce((a, n, i) => a + n * (i + 1), 0),
     dist,
-    current: s.currentStreak || 0,
-    best: s.maxStreak || 0,
-    worst: null, // the device doesn't keep the day by day history needed
+    avgResult: s.gamesPlayed ? (dist.slice(0, 6).reduce((a, n, i) => a + n * (i + 1), 0) + 7 * dist[6]) / s.gamesPlayed : null,
+    bestResult: dist.slice(0, 6).some((n) => n) ? dist.findIndex((n, i) => i < 6 && n > 0) + 1 : null,
+    daysInRow: null, // the device doesn't keep the day by day history needed
+    todayResult,
     timeToday,
     timeBest,
     timeWorst,
