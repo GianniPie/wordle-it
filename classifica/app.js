@@ -185,15 +185,7 @@ async function submitLogin(form) {
   const email = form.email.value.trim();
   const button = form.querySelector("button");
   button.disabled = true;
-  // Puts the group and who invites into the login email (for new and existing accounts).
-  const { data: invite } = await sb.rpc("prepare_login", {
-    p_email: email,
-    p_code: state.pendingJoin,
-    p_from: state.pendingFrom,
-  });
-  const options = { emailRedirectTo: redirectUrl() };
-  if (invite) options.data = invite;
-  const { error } = await sb.auth.signInWithOtp({ email, options });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectUrl() } });
   button.disabled = false;
   if (error) return showFormError(form, error);
   renderLogin(email);
@@ -611,7 +603,8 @@ function profileCard() {
     <div class="card profile">
       <span><strong>${esc(state.profile.display_name)}</strong><br><span class="muted small">${esc(state.session.user.email || "")}</span></span>
       <button class="link" data-action="edit-name">Cambia nome</button>
-    </div>`;
+    </div>
+    <p class="actions"><button class="link danger" data-action="delete-account">Elimina il mio account</button></p>`;
 }
 
 // ---------- actions ----------
@@ -704,6 +697,24 @@ const actions = {
   "edit-name": () => {
     renderName();
     $app.querySelector("input").value = state.profile.display_name;
+  },
+  "delete-account": async () => {
+    const ok = confirm(
+      "Eliminare il tuo account?\n\n" +
+        "Verranno cancellati per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi. " +
+        "I gruppi che hai creato passano a chi è entrato per primo dopo di te; quelli dove sei da solo vengono eliminati.\n\n" +
+        "Potrai sempre rientrare con la stessa email, ma ripartirai da zero."
+    );
+    if (!ok) return;
+    const { error } = await sb.rpc("delete_my_account");
+    if (error) return toast(errorText(error), 3000);
+    ["parle-synced", "parle-group"].forEach((k) => store(k, null));
+    state.data = {};
+    state.groups = [];
+    state.groupId = null;
+    state.profile = null;
+    await sb.auth.signOut({ scope: "local" });
+    toast("Account eliminato", 2500);
   },
 };
 
