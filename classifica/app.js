@@ -167,6 +167,8 @@ function errorText(error) {
 // ---------- startup ----------
 
 async function init() {
+  document.getElementById("puzzle-number").textContent = `#${dayNumber(new Date())}`;
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
   const params = new URLSearchParams(location.search);
   const join = params.get("join");
   if (join) {
@@ -297,8 +299,7 @@ function renderHelp() {
       <div class="example">${row("porto", 2, "present")}<p>La lettera <strong>R</strong> è nella parola ma nel posto sbagliato.</p></div>
       <div class="example">${row("vaghi", 3, "absent")}<p>La lettera <strong>H</strong> non è nella parola.</p></div>
     </div>
-    <p><strong>Un nuovo gioco di PAR🇮🇹LE ogni giorno!</strong></p>
-    <p><a class="button primary" href="../">Gioca</a></p>`);
+    <p><strong>Un nuovo gioco di PAR🇮🇹LE ogni giorno!</strong></p>`);
 }
 
 // ---------- settings (stored where the game reads them) ----------
@@ -324,32 +325,43 @@ function hardModeLocked(gs) {
   return !gs.hardMode && gs.gameStatus === "IN_PROGRESS" && gs.rowIndex > 0;
 }
 
+// "light", "dark" or "system" (nothing chosen: follow the phone), stored where the game reads it.
+function themeMode() {
+  const v = read("darkTheme");
+  return v === "true" ? "dark" : v === "false" ? "light" : "system";
+}
+
+function applyTheme() {
+  const mode = themeMode();
+  const dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("nightmode", dark);
+}
+
 function renderSettings() {
   const gs = readGameState();
+  const mode = themeMode();
   const setting = (name, title, description, checked) => `<label class="setting">
       <span class="text"><span class="title">${title}</span>${description ? `<span class="description">${description}</span>` : ""}</span>
       <input type="checkbox" class="switch" role="switch" data-setting="${name}" ${checked ? "checked" : ""} />
     </label>`;
+  const themeButton = (value, label) =>
+    `<button role="radio" aria-checked="${mode === value}" data-action="theme" data-value="${value}">${label}</button>`;
   renderShell(`<h2>Impostazioni</h2>
     <div class="settings">
       ${setting("hard-mode", "Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", !!gs.hardMode)}
-      ${setting("dark-theme", "Tema nero", "", readFlag("darkTheme"))}
-      ${setting("color-blind-theme", "Colori ad alto contrasto", "", readFlag("colorBlindTheme"))}
-      <div class="setting">
-        <span class="text"><span class="title">Feedback</span></span>
-        <span><a href="https://github.com/pietroppeter/wordle-it/issues/new" target="_blank" rel="noopener">Github</a> | <a href="https://twitter.com/intent/tweet?screen_name=pietroppeter" target="_blank" rel="noopener">Twitter</a></span>
+      <div class="setting stacked">
+        <span class="text"><span class="title">Tema</span><span class="description">"Sistema" segue le impostazioni del telefono</span></span>
+        <div class="segmented" role="radiogroup" aria-label="Tema">
+          ${themeButton("light", "Chiaro")}${themeButton("dark", "Scuro")}${themeButton("system", "Sistema")}
+        </div>
       </div>
-    </div>
-    <p class="muted small" style="text-align:right">#${dayNumber(new Date())}</p>`);
+      ${readFlag("colorBlindTheme") ? setting("color-blind-theme", "Colori ad alto contrasto", "", true) : ""}
+    </div>`);
 }
 
 function changeSetting(input) {
   const on = input.checked;
   switch (input.dataset.setting) {
-    case "dark-theme":
-      store("darkTheme", JSON.stringify(on));
-      document.documentElement.classList.toggle("nightmode", on);
-      break;
     case "color-blind-theme":
       store("colorBlindTheme", JSON.stringify(on));
       document.documentElement.classList.toggle("colorblind", on);
@@ -918,6 +930,12 @@ const actions = {
     navigate("./", true);
   },
   "cancel-create": () => navigate("./"),
+  theme: (el) => {
+    const value = el.dataset.value;
+    store("darkTheme", value === "system" ? null : JSON.stringify(value === "dark"));
+    applyTheme();
+    renderSettings();
+  },
   logout: async () => {
     await sb.auth.signOut();
     state.data = {};

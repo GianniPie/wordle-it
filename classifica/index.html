@@ -11,7 +11,9 @@
     <script>
       // Same theme settings as the game.
       try {
-        if (JSON.parse(localStorage.getItem("darkTheme"))) document.documentElement.classList.add("nightmode");
+        // Same theme as the game: chosen light/dark, or the phone's setting ("Sistema") when nothing is chosen.
+        var dark = JSON.parse(localStorage.getItem("darkTheme"));
+        if (dark === true || (dark !== false && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("nightmode");
         if (JSON.parse(localStorage.getItem("colorBlindTheme"))) document.documentElement.classList.add("colorblind");
       } catch (e) {}
     </script>
@@ -26,7 +28,7 @@
         </button>
       </div>
       <a class="title" href="../">PAR🇮🇹LE</a>
-      <div class="menu-slot"></div>
+      <div class="menu-slot" id="puzzle-number"></div>
       <nav id="menu" hidden></nav>
     </header>
 
