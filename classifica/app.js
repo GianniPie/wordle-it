@@ -432,15 +432,17 @@ function renderAccount() {
           <button class="primary" type="submit">Salva</button>
         </span>
       </form>`
-    : `<span class="who"><strong>${esc(name)}</strong><span class="muted small">${esc(state.session.user.email || "")}</span></span>
-      <button class="link" data-action="edit-name">Cambia nome</button>`;
+    : `<span class="who"><strong>${esc(name)}</strong><span class="muted small email">${esc(state.session.user.email || "")}</span></span>`;
   renderShell(`<h2>Account</h2>
     <div class="card profile${state.editingName ? " editing" : ""}">
       <span class="avatar" aria-hidden="true">${esc([...name][0] || "?")}</span>
       ${who}
     </div>
+    <div class="account-actions">
+      ${state.editingName ? "" : `<button class="secondary" data-action="edit-name">Cambia nome</button>`}
+      <button class="secondary" data-action="logout">Esci</button>
+    </div>
     <p class="muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
-    <button class="secondary" data-action="logout">Esci</button>
     <div class="danger-zone">
       <h2>Eliminare l'account</h2>
       <p class="small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
@@ -473,8 +475,8 @@ async function renderLogin(sentTo) {
         <p class="error small" data-error hidden></p>
         <p class="muted small">L'email arriva da <strong>Parle</strong> (gruppi.parle@gmail.com). Se non la trovi, guarda nello spam e segnala "Non è spam": le prossime arriveranno nella posta in arrivo.</p>
         <div class="actions" style="justify-content:center">
-          <button class="link" data-action="resend-code">Manda un nuovo codice</button>
-          <button class="link" data-action="login-again">Usa un'altra email</button>
+          <button class="secondary compact" data-action="resend-code">Manda un nuovo codice</button>
+          <button class="secondary compact" data-action="login-again">Usa un'altra email</button>
         </div>
       </div>`;
     $app.querySelector("input").focus();
@@ -592,7 +594,7 @@ async function renderJoin() {
       <p style="font-size:24px;font-weight:700;margin:8px 0">${esc(group.name)}</p>
       <p class="muted small">${group.members} ${group.members == 1 ? "giocatore" : "giocatori"}</p>
       <p><button class="primary" data-action="join">${already ? "Apri il gruppo" : "Entra nel gruppo"}</button></p>
-      <button class="link" data-action="skip-join">No grazie</button>
+      <button class="secondary compact" data-action="skip-join">No grazie</button>
     </div>`;
 }
 
@@ -675,7 +677,7 @@ function createForm() {
         <button class="primary" type="submit">Crea</button>
       </form>
       <p class="error small" data-error hidden></p>
-      <button class="link" data-action="cancel-create">Annulla</button>
+      <button class="secondary compact" data-action="cancel-create">Annulla</button>
     </div>`;
 }
 

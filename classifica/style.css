@@ -759,3 +759,12 @@ button.danger-outline.tiny {
 
 /* Dialogs with a text field sit near the top, above the phone keyboard */
 .modal-backdrop.with-input { align-items: flex-start; padding-top: max(16px, 6vh); }
+
+/* Smaller version of a button, for use inside a card next to text */
+button.secondary.compact { flex: none; height: 36px; padding: 0 12px; font-size: 14px; }
+.card > button.compact { margin-top: 10px; }
+
+/* Account: name and email in the card, Cambia nome and Esci side by side under it */
+.account-actions { display: flex; gap: 8px; margin-top: 12px; }
+.account-actions button { flex: 1; padding: 0 10px; white-space: nowrap; }
+.card.profile .email { overflow-wrap: anywhere; }
