@@ -153,5 +153,9 @@
     <game-app></game-app>
     <!-- Saves finished games to the leaderboard (classifica/) for logged in players -->
     <script type="module" src="classifica/sync.js"></script>
+    <!-- Keeps a copy of the app on the device so it also works without network -->
+    <script>
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+    </script>
   </body>
 </html>

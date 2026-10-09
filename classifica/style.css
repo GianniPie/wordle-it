@@ -820,3 +820,15 @@ a.button.full { width: 100%; justify-content: center; }
 .stats-page p.small { margin: 6px 0 0; }
 /* The line above Oggi runs from edge to edge of the card */
 .stats-page .stats-summary h2.today-title { margin-left: -14px; margin-right: -14px; }
+
+/* Shown when the page uses the data kept on the device */
+.offline-banner {
+  margin: 4px 0 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-tone-1);
+  background: var(--color-tone-5);
+  border-radius: 10px;
+}

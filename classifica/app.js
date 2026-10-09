@@ -189,8 +189,52 @@ function currentGroup() {
   return state.groups.find((g) => g.id === state.groupId);
 }
 
+// ---------- offline: keep the last data ----------
+
+const isOffline = (error) => !navigator.onLine || /failed to fetch|networkerror|network request|load failed|fetch failed/i.test(error?.message || String(error));
+
+// Supabase answer -> data, or throw its error.
+const must = ({ data, error }) => {
+  if (error) throw error;
+  return data;
+};
+
+// Runs a read and keeps its result on the device; without network it returns the last kept copy instead
+// (state.staleAt then tells how old it is, for the "Sei offline" notice). Throws when there is neither.
+async function keep(key, load) {
+  // Known offline (airplane mode, no network): the kept copy at once, without waiting for the retries.
+  if (!navigator.onLine) {
+    const kept = readJSON(`parle-cache-${key}`, null);
+    if (kept) {
+      state.staleAt = Math.min(state.staleAt ?? Infinity, kept.at);
+      return kept.data;
+    }
+  }
+  try {
+    const data = await load();
+    store(`parle-cache-${key}`, JSON.stringify({ at: Date.now(), data }));
+    return data;
+  } catch (error) {
+    if (!isOffline(error)) throw error;
+    const kept = readJSON(`parle-cache-${key}`, null);
+    if (!kept) throw error;
+    state.staleAt = Math.min(state.staleAt ?? Infinity, kept.at);
+    return kept.data;
+  }
+}
+
+function offlineBanner() {
+  if (!state.staleAt) return "";
+  const at = new Date(state.staleAt);
+  const sameDay = at.toDateString() === new Date().toDateString();
+  const time = at.toLocaleTimeString("it", { hour: "2-digit", minute: "2-digit" });
+  const when = sameDay ? `alle ${time}` : `il ${at.toLocaleDateString("it", { day: "numeric", month: "numeric" })} alle ${time}`;
+  return `<div class="offline-banner">Sei offline: dati aggiornati ${when}</div>`;
+}
+
 function errorText(error) {
   const msg = error?.message || String(error);
+  if (isOffline(error)) return "Sei offline: riprova quando torna la connessione.";
   if (/rate limit/i.test(msg)) return "Troppe email inviate, riprova tra un po'.";
   if (/security purposes/i.test(msg)) return "Aspetta un minuto prima di chiedere un nuovo codice.";
   if (/expired|invalid.*(token|otp)|(token|otp).*invalid/i.test(msg)) return "Codice sbagliato o scaduto.";
@@ -215,6 +259,7 @@ async function init() {
   const { data, error } = await sb.auth.getSession();
   if (error) console.warn(error);
   state.session = data.session;
+  if (!state.session && error && isOffline(error)) state.session = readJSON("sb-nxybifpygctncflcwbfa-auth-token", null);
   sb.auth.onAuthStateChange((event, session) => {
     const wasIn = !!state.session;
     state.session = session;
@@ -223,10 +268,16 @@ async function init() {
   // Remove the invite code from the address bar.
   if (join) history.replaceState(null, "", location.pathname);
   window.addEventListener("popstate", route);
+  // Network back: fresh data instead of the kept copy.
+  window.addEventListener("online", () => {
+    state.data = {};
+    route();
+  });
   route();
 }
 
 async function route() {
+  state.staleAt = null;
   let view = currentView();
   if (view.name === "help" || view.name === "settings") {
     // Usable without an account; the menu uses the groups the game page remembered.
@@ -258,8 +309,14 @@ async function route() {
   }
 
   if (!state.profile || state.profile.id !== state.session.user.id) {
-    const { data: profile, error } = await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle();
-    if (error) return renderError(error);
+    let profile;
+    try {
+      profile = await keep(`profile-${state.session.user.id}`, async () =>
+        must(await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle())
+      );
+    } catch (error) {
+      return renderError(error);
+    }
     state.profile = profile;
     store("parle-name", profile?.display_name ?? null);
     store("parle-avatar", profile?.avatar_url ?? null);
@@ -444,17 +501,26 @@ async function renderStats() {
   renderShell(`<h1 class="page-title">Le mie statistiche</h1><p class="muted center">Caricamento...</p>`);
   let stats;
   if (state.session) {
-    const rows = [];
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await sb
-        .from("results")
-        .select("day, won, num_guesses, play_ms")
-        .eq("user_id", state.session.user.id)
-        .order("day")
-        .range(from, from + 999);
-      if (error) return renderError(error);
-      rows.push(...data);
-      if (data.length < 1000) break;
+    let rows;
+    try {
+      rows = await keep(`results-${state.session.user.id}`, async () => {
+        const all = [];
+        for (let from = 0; ; from += 1000) {
+          const data = must(
+            await sb
+              .from("results")
+              .select("day, won, num_guesses, play_ms")
+              .eq("user_id", state.session.user.id)
+              .order("day")
+              .range(from, from + 999)
+          );
+          all.push(...data);
+          if (data.length < 1000) break;
+        }
+        return all;
+      });
+    } catch (error) {
+      return renderError(error);
     }
     stats = accountStats(rows);
   } else {
@@ -800,6 +866,11 @@ async function saveAvatar(button) {
 }
 
 function renderError(error) {
+  if (isOffline(error)) {
+    $app.innerHTML = `<p class="center">Sei offline e su questo dispositivo non ci sono ancora dati salvati per questa pagina.</p>
+      <p class="center"><button class="secondary" data-action="reload">Riprova</button></p>`;
+    return;
+  }
   $app.innerHTML = `<p class="error center">Qualcosa è andato storto: ${esc(errorText(error))}</p>
     <p class="center"><button class="secondary" data-action="reload">Riprova</button></p>`;
 }
@@ -961,8 +1032,12 @@ async function joinPending() {
 // ---------- groups ----------
 
 async function loadGroups() {
-  const { data, error } = await sb.from("groups").select("*").order("created_at");
-  if (error) return renderError(error);
+  let data;
+  try {
+    data = await keep(`groups-${state.session.user.id}`, async () => must(await sb.from("groups").select("*").order("created_at")));
+  } catch (error) {
+    return renderError(error);
+  }
   state.groups = data;
   // The game page lists these in its menu.
   store("parle-groups", JSON.stringify(data.map((g) => ({ id: g.id, name: g.name }))));
@@ -981,7 +1056,7 @@ async function loadGroup() {
   if (!state.data[group.id]) {
     renderShell(`<p class="muted center">Caricamento...</p>`);
     try {
-      state.data[group.id] = await fetchGroupData(group);
+      state.data[group.id] = await keep(`group-${group.id}`, () => fetchGroupData(group));
     } catch (error) {
       return renderError(error);
     }
@@ -1038,7 +1113,7 @@ function renderShell(body) {
     state.chart.destroy();
     state.chart = null;
   }
-  $app.innerHTML = body;
+  $app.innerHTML = offlineBanner() + body;
 }
 
 function renderNoGroups() {
