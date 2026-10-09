@@ -768,3 +768,26 @@ button.secondary.compact { flex: none; height: 36px; padding: 0 12px; font-size:
 .account-actions { display: flex; gap: 8px; margin-top: 12px; }
 .account-actions button { flex: 1; padding: 0 10px; white-space: nowrap; }
 .card.profile .email { overflow-wrap: anywhere; }
+
+/* Avatar pictures: round, filling the circle */
+.avatar.has-img, #account-slot .header-avatar.has-img { overflow: hidden; background: #fff; }
+.avatar.has-img img, #account-slot .header-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Avatar editor */
+.avatar-editor .segmented { display: flex; margin-bottom: 16px; }
+.avatar-editor .segmented button { flex: 1; }
+.avatar-stage { display: flex; justify-content: center; margin: 4px 0 8px; }
+.avatar-stage canvas {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--soft), var(--shadow);
+  touch-action: none;
+  cursor: grab;
+}
+.avatar-stage canvas:active { cursor: grabbing; }
+.avatar.letter-preview { width: 220px; height: 220px; font-size: 100px; }
+.zoom { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; font-size: 14px; font-weight: 600; }
+.zoom input { flex: 1; accent-color: var(--color-correct); }
+.avatar-editor .rename-actions { margin-top: 16px; }

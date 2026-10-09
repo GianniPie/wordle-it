@@ -24,6 +24,7 @@ const state = {
   pendingFrom: null, // id of the member who shared the invite link
   chart: null,
   editingName: false, // Account page: name being changed in place
+  avatarEdit: null, // Account page: avatar editor { mode: "photo" | "letter", img, zoom, x, y }
 };
 
 // ---------- helpers ----------
@@ -173,6 +174,7 @@ function currentView() {
 
 function navigate(url, replace = false) {
   state.editingName = false;
+  state.avatarEdit = null;
   history[replace ? "replaceState" : "pushState"](null, "", url);
   closeMenu();
   window.scrollTo(0, 0);
@@ -236,6 +238,7 @@ async function route() {
     state.groups = [];
     store("parle-groups", null);
     store("parle-name", null);
+    store("parle-avatar", null);
     renderMenu();
     if (view.name === "account" || state.pendingJoin) return renderLogin(read("parle-login-email"));
     return renderNeedLogin();
@@ -246,6 +249,7 @@ async function route() {
     if (error) return renderError(error);
     state.profile = profile;
     store("parle-name", profile?.display_name ?? null);
+    store("parle-avatar", profile?.avatar_url ?? null);
     if (profile) {
       syncToday().then((saved) => {
         if (saved) {
@@ -300,7 +304,9 @@ function renderAccountSlot() {
     return;
   }
   const name = state.profile?.display_name || read("parle-name") || "";
-  slot.innerHTML = `<a class="header-avatar" data-nav href="?account" aria-label="Account${name ? ` di ${esc(name)}` : ""}"${current}>${name ? esc([...name][0]) : PERSON_ICON}</a>`;
+  const picture = state.profile ? state.profile.avatar_url : read("parle-avatar");
+  const inside = picture ? `<img src="${esc(picture)}" alt="" />` : name ? esc([...name][0]) : PERSON_ICON;
+  slot.innerHTML = `<a class="header-avatar${picture ? " has-img" : ""}" data-nav href="?account" aria-label="Account${name ? ` di ${esc(name)}` : ""}"${current}>${inside}</a>`;
 }
 
 function closeMenu() {
@@ -421,8 +427,16 @@ function renderNeedLogin() {
     <p><a class="button primary" data-nav href="?account">Accedi</a></p>`;
 }
 
+// The player's avatar: their picture, or the first letter of the name on green.
+function avatarHtml(profile, className) {
+  const name = profile?.display_name || "";
+  if (profile?.avatar_url) return `<span class="${className} has-img" aria-hidden="true"><img src="${esc(profile.avatar_url)}" alt="" /></span>`;
+  return `<span class="${className}" aria-hidden="true">${esc([...name][0] || "?")}</span>`;
+}
+
 function renderAccount() {
   const name = state.profile.display_name;
+  if (state.avatarEdit) return renderAvatarEditor();
   const who = state.editingName
     ? `<form class="who rename" data-form="rename-me">
         <input type="text" name="name" maxlength="24" value="${esc(name)}" autocomplete="nickname" required aria-label="Il tuo nome" />
@@ -435,11 +449,18 @@ function renderAccount() {
     : `<span class="who"><strong>${esc(name)}</strong><span class="muted small email">${esc(state.session.user.email || "")}</span></span>`;
   renderShell(`<h2>Account</h2>
     <div class="card profile${state.editingName ? " editing" : ""}">
-      <span class="avatar" aria-hidden="true">${esc([...name][0] || "?")}</span>
+      ${avatarHtml(state.profile, "avatar")}
       ${who}
     </div>
+    ${
+      state.editingName
+        ? ""
+        : `<div class="account-actions">
+            <button class="secondary" data-action="edit-name">Cambia nome</button>
+            <button class="secondary" data-action="edit-avatar">Cambia avatar</button>
+          </div>`
+    }
     <div class="account-actions">
-      ${state.editingName ? "" : `<button class="secondary" data-action="edit-name">Cambia nome</button>`}
       <button class="secondary" data-action="logout">Esci</button>
     </div>
     <p class="muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
@@ -448,6 +469,157 @@ function renderAccount() {
       <p class="small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
       <button class="danger-outline" data-action="delete-account">Elimina il mio account</button>
     </div>`);
+}
+
+// ---------- avatar editor ----------
+
+const AVATAR_STAGE = 480; // canvas pixels of the editor preview
+const AVATAR_SIZE = 256; // pixels of the saved picture
+const ZOOM_MIN = 0.15, ZOOM_MAX = 5; // from very small (white around) to very big
+
+// Slider 0..100 <-> zoom, on a curve so both ends are easy to reach.
+const sliderToZoom = (v) => ZOOM_MIN * (ZOOM_MAX / ZOOM_MIN) ** (v / 100);
+const zoomToSlider = (z) => (100 * Math.log(z / ZOOM_MIN)) / Math.log(ZOOM_MAX / ZOOM_MIN);
+
+function openAvatarEditor() {
+  const url = state.profile.avatar_url;
+  state.avatarEdit = { mode: url ? "photo" : "letter", img: null, zoom: 1, x: 0, y: 0 };
+  if (url) {
+    // Start from the saved picture.
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (!state.avatarEdit) return;
+      state.avatarEdit.img = img;
+      drawAvatar();
+    };
+    img.src = url;
+  }
+  renderAccount();
+}
+
+function renderAvatarEditor() {
+  const ed = state.avatarEdit;
+  const name = state.profile.display_name;
+  const choice = (mode, label) => `<button role="radio" aria-checked="${ed.mode === mode}" data-action="avatar-mode" data-value="${mode}">${label}</button>`;
+  const photo = `
+    <div class="avatar-stage"><canvas id="avatar-canvas" width="${AVATAR_STAGE}" height="${AVATAR_STAGE}" aria-label="Anteprima dell'avatar"></canvas></div>
+    ${
+      ed.img
+        ? `<p class="muted small center">Trascina la foto per spostarla.</p>
+           <label class="zoom">
+             <span>Dimensione</span>
+             <input type="range" id="avatar-zoom" min="0" max="100" step="0.5" value="${zoomToSlider(ed.zoom)}" />
+           </label>`
+        : `<p class="muted small center">Scegli una foto dal telefono o dal computer.</p>`
+    }
+    <div class="account-actions">
+      <button class="secondary" data-action="pick-photo">${ed.img ? "Scegli un'altra foto" : "Scegli foto"}</button>
+    </div>
+    <input type="file" id="avatar-file" accept="image/*" hidden />`;
+  const letter = `<div class="avatar-stage"><span class="avatar letter-preview">${esc([...name][0] || "?")}</span></div>
+    <p class="muted small center">La prima lettera del tuo nome su sfondo verde.</p>`;
+  renderShell(`<h2>Cambia avatar</h2>
+    <div class="card avatar-editor">
+      <div class="segmented" role="radiogroup" aria-label="Tipo di avatar">${choice("photo", "Foto")}${choice("letter", "Iniziale")}</div>
+      ${ed.mode === "photo" ? photo : letter}
+      <p class="error small center" data-error hidden></p>
+      <div class="rename-actions">
+        <button class="secondary" data-action="cancel-avatar">Annulla</button>
+        <button class="primary" data-action="save-avatar" ${ed.mode === "photo" && !ed.img ? "disabled" : ""}>Salva</button>
+      </div>
+    </div>`);
+  if (ed.mode === "photo") setupAvatarEditor();
+}
+
+function drawAvatar(canvas = document.getElementById("avatar-canvas"), size = AVATAR_STAGE) {
+  const ed = state.avatarEdit;
+  if (!canvas || !ed) return;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, size, size);
+  if (!ed.img) return;
+  const k = size / AVATAR_STAGE;
+  // zoom 1 = the photo just covers the circle
+  const cover = Math.max(AVATAR_STAGE / ed.img.naturalWidth, AVATAR_STAGE / ed.img.naturalHeight);
+  const w = ed.img.naturalWidth * cover * ed.zoom * k;
+  const h = ed.img.naturalHeight * cover * ed.zoom * k;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(ed.img, size / 2 + ed.x * k - w / 2, size / 2 + ed.y * k - h / 2, w, h);
+}
+
+function setupAvatarEditor() {
+  const canvas = document.getElementById("avatar-canvas");
+  const file = document.getElementById("avatar-file");
+  const zoom = document.getElementById("avatar-zoom");
+  drawAvatar();
+  file.addEventListener("change", () => {
+    const f = file.files[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      Object.assign(state.avatarEdit, { img, zoom: 1, x: 0, y: 0 });
+      renderAvatarEditor();
+    };
+    img.onerror = () => toast("Questa immagine non si può aprire, prova con un'altra.", 3000);
+    img.src = URL.createObjectURL(f);
+  });
+  zoom?.addEventListener("input", () => {
+    state.avatarEdit.zoom = sliderToZoom(Number(zoom.value));
+    drawAvatar();
+  });
+  // Move the photo with a finger or the mouse.
+  let last = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    if (!state.avatarEdit.img) return;
+    canvas.setPointerCapture(e.pointerId);
+    last = { x: e.clientX, y: e.clientY };
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!last) return;
+    const k = AVATAR_STAGE / canvas.getBoundingClientRect().width;
+    state.avatarEdit.x += (e.clientX - last.x) * k;
+    state.avatarEdit.y += (e.clientY - last.y) * k;
+    last = { x: e.clientX, y: e.clientY };
+    drawAvatar();
+  });
+  const stop = () => (last = null);
+  canvas.addEventListener("pointerup", stop);
+  canvas.addEventListener("pointercancel", stop);
+}
+
+async function saveAvatar(button) {
+  const ed = state.avatarEdit;
+  const uid = state.session.user.id;
+  const errorEl = $app.querySelector(".avatar-editor [data-error]");
+  const fail = (error) => {
+    button.disabled = false;
+    errorEl.textContent = errorText(error);
+    errorEl.hidden = false;
+  };
+  button.disabled = true;
+  let url = null;
+  if (ed.mode === "photo") {
+    const out = document.createElement("canvas");
+    out.width = out.height = AVATAR_SIZE;
+    drawAvatar(out, AVATAR_SIZE);
+    const blob = await new Promise((resolve) => out.toBlob(resolve, "image/jpeg", 0.88));
+    const { error } = await sb.storage.from("avatars").upload(`${uid}.jpg`, blob, { upsert: true, contentType: "image/jpeg", cacheControl: "3600" });
+    if (error) return fail(error);
+    // The version in the address makes phones show the new picture instead of a remembered one.
+    url = `${sb.storage.from("avatars").getPublicUrl(`${uid}.jpg`).data.publicUrl}?v=${Date.now()}`;
+  } else if (state.profile.avatar_url) {
+    await sb.storage.from("avatars").remove([`${uid}.jpg`]);
+  }
+  const { error } = await sb.from("profiles").update({ avatar_url: url }).eq("id", uid);
+  if (error) return fail(error);
+  state.profile = { ...state.profile, avatar_url: url };
+  store("parle-avatar", url);
+  state.avatarEdit = null;
+  state.data = {};
+  renderMenu();
+  renderAccount();
+  toast("Avatar aggiornato");
 }
 
 function renderError(error) {
@@ -1172,7 +1344,8 @@ const actions = {
       ok: "Esci",
     });
     if (!ok) return;
-    await sb.auth.signOut();
+    // Only this device: other phones and computers stay logged in.
+    await sb.auth.signOut({ scope: "local" });
     state.data = {};
     state.groups = [];
     state.groupId = null;
@@ -1180,6 +1353,7 @@ const actions = {
     store("parle-groups", null);
     store("parle-group", null);
     store("parle-name", null);
+    store("parle-avatar", null);
   },
   "flip-results": () => {
     state.resultsFlipped = !state.resultsFlipped;
@@ -1250,6 +1424,17 @@ const actions = {
     input.focus();
     input.select();
   },
+  "edit-avatar": openAvatarEditor,
+  "avatar-mode": (el) => {
+    state.avatarEdit.mode = el.dataset.value;
+    renderAccount();
+  },
+  "pick-photo": () => document.getElementById("avatar-file").click(),
+  "cancel-avatar": () => {
+    state.avatarEdit = null;
+    renderAccount();
+  },
+  "save-avatar": saveAvatar,
   "cancel-name": () => {
     state.editingName = false;
     renderAccount();
@@ -1272,9 +1457,10 @@ const actions = {
       ok: "Elimina per sempre",
     });
     if (!ok) return;
+    if (state.profile?.avatar_url) await sb.storage.from("avatars").remove([`${state.session.user.id}.jpg`]);
     const { error } = await sb.rpc("delete_my_account");
     if (error) return toast(errorText(error), 3000);
-    ["parle-synced", "parle-group", "parle-groups", "parle-login-email", "parle-name"].forEach((k) => store(k, null));
+    ["parle-synced", "parle-group", "parle-groups", "parle-login-email", "parle-name", "parle-avatar"].forEach((k) => store(k, null));
     state.data = {};
     state.groups = [];
     state.groupId = null;

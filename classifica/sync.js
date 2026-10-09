@@ -4,6 +4,7 @@
 const SESSION_KEY = "sb-nxybifpygctncflcwbfa-auth-token";
 const GROUPS_KEY = "parle-groups"; // [{ id, name }], written by the leaderboard page too
 const NAME_KEY = "parle-name"; // the player's name, written by the leaderboard page too
+const AVATAR_KEY = "parle-avatar"; // the player's picture address (none: first letter of the name)
 // Shown in the avatar until the name is known.
 const PERSON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#fff" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
 
@@ -43,16 +44,19 @@ function renderAccount() {
     return;
   }
   const name = read(NAME_KEY) || "";
-  slot.innerHTML = `<a class="avatar" href="classifica/?account" aria-label="Account${name ? ` di ${esc(name)}` : ""}">${name ? esc([...name][0]) : PERSON}</a>`;
+  const picture = read(AVATAR_KEY);
+  const inside = picture ? `<img src="${esc(picture)}" alt="" />` : name ? esc([...name][0]) : PERSON;
+  slot.innerHTML = `<a class="avatar" href="classifica/?account" aria-label="Account${name ? ` di ${esc(name)}` : ""}">${inside}</a>`;
 }
 
 async function refreshName(db) {
   const { data: { session } } = await db.sb.auth.getSession();
   if (!session) return;
-  const { data, error } = await db.sb.from("profiles").select("display_name").eq("id", session.user.id).maybeSingle();
+  const { data, error } = await db.sb.from("profiles").select("display_name, avatar_url").eq("id", session.user.id).maybeSingle();
   if (error) return;
   try {
     data ? localStorage.setItem(NAME_KEY, data.display_name) : localStorage.removeItem(NAME_KEY);
+    data?.avatar_url ? localStorage.setItem(AVATAR_KEY, data.avatar_url) : localStorage.removeItem(AVATAR_KEY);
   } catch {}
   renderAccount();
 }
