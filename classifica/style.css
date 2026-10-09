@@ -527,7 +527,9 @@ main a:not(.button) { color: var(--color-tone-1); }
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
   animation: fade-in 0.15s ease-out;
 }
 .modal {
@@ -543,7 +545,7 @@ main a:not(.button) { color: var(--color-tone-1); }
   animation: pop-in 0.18s ease-out;
 }
 .modal h3 { margin: 0 0 8px; font-size: 20px; }
-.modal.danger { border-top: 6px solid var(--color-danger); }
+.modal.alert { border: 2px solid var(--color-danger); }
 .modal.danger h3 { color: var(--color-danger); text-align: center; }
 .modal-icon {
   display: flex;

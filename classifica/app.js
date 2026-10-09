@@ -43,19 +43,20 @@ function toast(text, ms = 2000) {
 
 // The page's own dialog (the browser's confirm/prompt boxes can be blocked, e.g. in installed apps).
 // Resolves to true (or the typed text when there is an input), or null when cancelled.
-function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger = false, input = null, requireText = null }) {
+// safe: a confirmation of something that cannot be undone (implied by danger). Annulla is then the main,
+// focused button and Invio cancels; the action button is secondary, and the dialog has a red border.
+function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger = false, safe = danger, input = null, requireText = null }) {
   return new Promise((resolve) => {
     const wrap = document.createElement("div");
     wrap.className = `modal-backdrop${input ? " with-input" : ""}`;
-    wrap.innerHTML = `<div class="modal${danger ? " danger" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    const cancelButton = cancel ? `<button class="${safe ? "primary" : "secondary"}" data-m="cancel">${esc(cancel)}</button>` : "";
+    const okButton = `<button class="${safe ? "danger-outline" : danger ? "danger-fill" : "primary"}" data-m="ok">${esc(ok)}</button>`;
+    wrap.innerHTML = `<div class="modal${danger ? " danger" : ""}${safe ? " alert" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         ${danger ? `<div class="modal-icon" aria-hidden="true">!</div>` : ""}
         <h3 id="modal-title">${esc(title)}</h3>
         <div class="modal-body">${html}</div>
         ${input ? `<input type="text" class="modal-input" maxlength="${input.maxlength || 200}" value="${esc(input.value || "")}" placeholder="${esc(input.placeholder || "")}" autocomplete="off" ${input.readonly ? "readonly" : ""} />` : ""}
-        <div class="modal-actions">
-          ${cancel ? `<button class="secondary" data-m="cancel">${esc(cancel)}</button>` : ""}
-          <button class="${danger ? "danger-fill" : "primary"}" data-m="ok">${esc(ok)}</button>
-        </div>
+        <div class="modal-actions">${safe ? okButton + cancelButton : cancelButton + okButton}</div>
       </div>`;
     document.body.appendChild(wrap);
     // When the phone keyboard opens, keep the dialog within the visible part of the screen.
@@ -71,9 +72,10 @@ function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger =
       vv.addEventListener("scroll", fit);
     }
     const field = wrap.querySelector(".modal-input");
-    const okButton = wrap.querySelector('[data-m="ok"]');
+    const okEl = wrap.querySelector('[data-m="ok"]');
+    const cancelEl = wrap.querySelector('[data-m="cancel"]');
     const check = () => {
-      if (requireText) okButton.disabled = field.value.trim().toUpperCase() !== requireText;
+      if (requireText) okEl.disabled = field.value.trim().toUpperCase() !== requireText;
     };
     const close = (value) => {
       document.removeEventListener("keydown", onKey);
@@ -84,19 +86,20 @@ function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger =
     };
     const onKey = (e) => {
       if (e.key === "Escape") close(null);
-      else if (e.key === "Enter" && !okButton.disabled) okButton.click();
+      // In confirmations Invio presses the focused button (Annulla); elsewhere it confirms.
+      else if (e.key === "Enter" && !safe && !okEl.disabled) okEl.click();
     };
     document.addEventListener("keydown", onKey);
     wrap.addEventListener("click", (e) => {
       if (e.target === wrap || e.target.dataset.m === "cancel") close(null);
-      else if (e.target.dataset.m === "ok" && !okButton.disabled) close(field && !input.readonly && !requireText ? field.value : true);
+      else if (e.target.dataset.m === "ok" && !okEl.disabled) close(field && !input.readonly && !requireText ? field.value : true);
     });
     if (field) {
       field.addEventListener("input", check);
       check();
       setTimeout(() => (input.readonly ? field.select() : field.focus()), 0);
     } else {
-      setTimeout(() => okButton.focus(), 0);
+      setTimeout(() => (safe && cancelEl ? cancelEl : okEl).focus(), 0);
     }
   });
 }
@@ -1340,6 +1343,7 @@ const actions = {
   logout: async () => {
     const ok = await modal({
       title: "Uscire dall'account?",
+      safe: true,
       html: "<p>Su questo dispositivo non vedrai più le classifiche e le tue partite non verranno salvate. Per rientrare dovrai chiedere un nuovo codice via email.</p>",
       ok: "Esci",
     });
@@ -1390,7 +1394,7 @@ const actions = {
     route();
   },
   "new-code": async () => {
-    if (!(await modal({ title: "Nuovo link di invito", html: "<p>Il vecchio link smetterà di funzionare: chi non è ancora entrato dovrà ricevere quello nuovo.</p>", ok: "Crea nuovo link" }))) return;
+    if (!(await modal({ title: "Nuovo link di invito", safe: true, html: "<p>Il vecchio link smetterà di funzionare: chi non è ancora entrato dovrà ricevere quello nuovo.</p>", ok: "Crea nuovo link" }))) return;
     const { error } = await sb.rpc("new_invite_code", { p_group: state.groupId });
     if (error) return toast(errorText(error), 3000);
     await route();
