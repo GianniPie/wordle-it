@@ -151,15 +151,47 @@ function rememberTime() {
 const SUPABASE_URL = "https://nxybifpygctncflcwbfa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-LLCVKGqP3hRaxXyrNoq5w_YUWu_QZs";
 
+// Fetched once per day and kept on the device, so the end-of-game dialog shows it at once.
+const definitions = {};
+function loadDefinition(day) {
+  if (definitions[day]) return definitions[day];
+  try {
+    const kept = JSON.parse(read("parle-definition") || "null");
+    if (kept?.day === day && kept.data) return (definitions[day] = Promise.resolve(kept.data));
+  } catch {}
+  definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url`, {
+    headers: { apikey: SUPABASE_KEY },
+  })
+    .then((res) => (res.ok ? res.json() : []))
+    .then(([data]) => {
+      if (data) {
+        try {
+          localStorage.setItem("parle-definition", JSON.stringify({ day, data }));
+        } catch {}
+      } else delete definitions[day]; // not ready yet: ask again next time
+      return data || null;
+    })
+    .catch(() => {
+      delete definitions[day];
+      return null;
+    });
+  return definitions[day];
+}
+
+// Ask for it before the dialog opens: when today's game is already over, or as soon as its last row is played.
+function prefetchDefinition() {
+  try {
+    const state = JSON.parse(read("gameState") || "null");
+    if (!state?.lastPlayedTs || !["WIN", "FAIL"].includes(state.gameStatus)) return;
+    const d = new Date(state.lastPlayedTs);
+    const day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
+    loadDefinition(day);
+  } catch {}
+}
+
 async function showDefinition(el, day, word) {
   if (!el) return;
-  let d = null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url`, {
-      headers: { apikey: SUPABASE_KEY },
-    });
-    if (res.ok) [d] = await res.json();
-  } catch {}
+  const d = await loadDefinition(day);
   const lemma = d?.lemma || word;
   const treccani = `<a class="treccani" href="https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/" target="_blank" rel="noopener">Apri su Treccani</a>`;
   const title = `<p class="word">${esc(word)}</p>`;
@@ -176,6 +208,8 @@ async function showDefinition(el, day, word) {
 }
 window.parleShowDefinition = showDefinition;
 if (window.parlePendingDefinition) showDefinition(...window.parlePendingDefinition);
+prefetchDefinition();
+window.addEventListener("game-last-tile-revealed-in-row", prefetchDefinition);
 
 function sync() {
   rememberTime();
