@@ -146,6 +146,37 @@ function rememberTime() {
   } catch {}
 }
 
+// The definition of the day's word at the end of the game: prepared on the server from the Italian Wiktionary,
+// readable without an account. The link opens the word on Treccani.
+const SUPABASE_URL = "https://nxybifpygctncflcwbfa.supabase.co";
+const SUPABASE_KEY = "sb_publishable_-LLCVKGqP3hRaxXyrNoq5w_YUWu_QZs";
+
+async function showDefinition(el, day, word) {
+  if (!el) return;
+  let d = null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url`, {
+      headers: { apikey: SUPABASE_KEY },
+    });
+    if (res.ok) [d] = await res.json();
+  } catch {}
+  const lemma = d?.lemma || word;
+  const treccani = `<a class="treccani" href="https://www.treccani.it/vocabolario/${encodeURIComponent(lemma)}/" target="_blank" rel="noopener">Apri su Treccani</a>`;
+  const title = `<p class="word">${esc(word)}</p>`;
+  if (!d || d.status !== "ok" || !d.senses?.length) {
+    el.innerHTML = `${title}<p class="none">Definizione non disponibile.</p>${treccani}`;
+    return;
+  }
+  el.innerHTML = `
+    ${title}
+    ${d.form_of ? `<p class="form">${esc(d.form_of)}</p>` : ""}
+    <ol>${d.senses.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+    ${treccani}
+    <p class="source">Definizione dal <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Wikizionario</a> (CC BY-SA)</p>`;
+}
+window.parleShowDefinition = showDefinition;
+if (window.parlePendingDefinition) showDefinition(...window.parlePendingDefinition);
+
 function sync() {
   rememberTime();
   if (!read(SESSION_KEY)) return;
