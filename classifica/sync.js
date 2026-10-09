@@ -208,7 +208,7 @@ async function showDefinition(el, day, word) {
     ${title}
     ${d.form_of ? `<p class="form">${esc(d.form_of)}</p>` : ""}
     <ol>${d.senses.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
-    <p class="source">Definizione dal <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Wikizionario</a> (CC BY-SA)</p>
+    <p class="source">Definizione dal <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Wikizionario</a></p>
     ${treccani}`;
 }
 window.parleShowDefinition = showDefinition;
