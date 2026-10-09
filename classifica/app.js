@@ -35,6 +35,52 @@ function toast(text, ms = 2000) {
   setTimeout(() => el.remove(), ms);
 }
 
+// The page's own dialog (the browser's confirm/prompt boxes can be blocked, e.g. in installed apps).
+// Resolves to true (or the typed text when there is an input), or null when cancelled.
+function modal({ title, html = "", ok = "Conferma", cancel = "Annulla", danger = false, input = null, requireText = null }) {
+  return new Promise((resolve) => {
+    const wrap = document.createElement("div");
+    wrap.className = "modal-backdrop";
+    wrap.innerHTML = `<div class="modal${danger ? " danger" : ""}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        ${danger ? `<div class="modal-icon" aria-hidden="true">!</div>` : ""}
+        <h3 id="modal-title">${esc(title)}</h3>
+        <div class="modal-body">${html}</div>
+        ${input ? `<input type="text" class="modal-input" maxlength="${input.maxlength || 200}" value="${esc(input.value || "")}" placeholder="${esc(input.placeholder || "")}" autocomplete="off" ${input.readonly ? "readonly" : ""} />` : ""}
+        <div class="modal-actions">
+          ${cancel ? `<button class="secondary" data-m="cancel">${esc(cancel)}</button>` : ""}
+          <button class="${danger ? "danger-fill" : "primary"}" data-m="ok">${esc(ok)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    const field = wrap.querySelector(".modal-input");
+    const okButton = wrap.querySelector('[data-m="ok"]');
+    const check = () => {
+      if (requireText) okButton.disabled = field.value.trim().toUpperCase() !== requireText;
+    };
+    const close = (value) => {
+      document.removeEventListener("keydown", onKey);
+      wrap.remove();
+      resolve(value);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close(null);
+      else if (e.key === "Enter" && !okButton.disabled) okButton.click();
+    };
+    document.addEventListener("keydown", onKey);
+    wrap.addEventListener("click", (e) => {
+      if (e.target === wrap || e.target.dataset.m === "cancel") close(null);
+      else if (e.target.dataset.m === "ok" && !okButton.disabled) close(field && !input.readonly && !requireText ? field.value : true);
+    });
+    if (field) {
+      field.addEventListener("input", check);
+      check();
+      setTimeout(() => (input.readonly ? field.select() : field.focus()), 0);
+    } else {
+      setTimeout(() => okButton.focus(), 0);
+    }
+  });
+}
+
 function store(key, value) {
   try {
     value == null ? localStorage.removeItem(key) : localStorage.setItem(key, value);
@@ -331,18 +377,20 @@ function renderNeedLogin() {
 }
 
 function renderAccount() {
-  $app.innerHTML = `<h2>Il tuo account</h2>
+  const name = state.profile.display_name;
+  renderShell(`<h2>Il tuo account</h2>
     <div class="card profile">
-      <span><strong>${esc(state.profile.display_name)}</strong><br><span class="muted small">${esc(state.session.user.email || "")}</span></span>
+      <span class="avatar" aria-hidden="true">${esc([...name][0] || "?")}</span>
+      <span class="who"><strong>${esc(name)}</strong><span class="muted small">${esc(state.session.user.email || "")}</span></span>
       <button class="link" data-action="edit-name">Cambia nome</button>
     </div>
     <p class="muted small">Su questo dispositivo l'accesso resta attivo finché non esci.</p>
-    <div class="actions">
-      <button class="secondary" data-action="logout">Esci</button>
-    </div>
-    <h2>Eliminare l'account</h2>
-    <p class="muted small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
-    <button class="link danger" data-action="delete-account">Elimina il mio account</button>`;
+    <button class="secondary" data-action="logout">Esci</button>
+    <div class="danger-zone">
+      <h2>Eliminare l'account</h2>
+      <p class="small">Cancella per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi.</p>
+      <button class="danger-outline" data-action="delete-account">Elimina il mio account</button>
+    </div>`);
 }
 
 function renderError(error) {
@@ -722,7 +770,9 @@ function distributionSection(stats) {
     .filter((s) => s.played)
     .map((s) => {
       const max = Math.max(...s.dist, 1);
-      const best = s.dist.indexOf(Math.max(...s.dist));
+      // Green for the most frequent winning try (never for X).
+      const wins = s.dist.slice(0, 6);
+      const best = wins.indexOf(Math.max(...wins));
       const rows = s.dist
         .map(
           (n, i) => `<div class="row"><span>${i < 6 ? i + 1 : "X"}</span>
@@ -846,7 +896,7 @@ async function shareInvite() {
     await navigator.clipboard.writeText(url);
     toast("Link copiato");
   } catch {
-    prompt("Copia il link di invito:", url);
+    modal({ title: "Link di invito", html: "<p>Copia il link e mandalo agli amici.</p>", input: { value: url, readonly: true }, ok: "Fatto", cancel: null });
   }
 }
 
@@ -884,27 +934,27 @@ const actions = {
   share: shareInvite,
   rename: async () => {
     const group = currentGroup();
-    const name = prompt("Nuovo nome del gruppo:", group.name)?.trim();
+    const name = (await modal({ title: "Rinomina il gruppo", input: { value: group.name, maxlength: 40 }, ok: "Salva" }))?.trim();
     if (!name || name === group.name) return;
     const { error } = await sb.from("groups").update({ name: name.slice(0, 40) }).eq("id", group.id);
     if (error) return toast(errorText(error), 3000);
     route();
   },
   "new-code": async () => {
-    if (!confirm("Il vecchio link di invito smetterà di funzionare. Continuare?")) return;
+    if (!(await modal({ title: "Nuovo link di invito", html: "<p>Il vecchio link smetterà di funzionare: chi non è ancora entrato dovrà ricevere quello nuovo.</p>", ok: "Crea nuovo link" }))) return;
     const { error } = await sb.rpc("new_invite_code", { p_group: state.groupId });
     if (error) return toast(errorText(error), 3000);
     await route();
     toast("Nuovo link creato");
   },
   remove: async (el) => {
-    if (!confirm(`Rimuovere ${el.dataset.name} dal gruppo?`)) return;
+    if (!(await modal({ title: "Rimuovere dal gruppo?", html: `<p><strong>${esc(el.dataset.name)}</strong> non vedrà più la classifica del gruppo. Potrà rientrare solo con un nuovo invito.</p>`, ok: "Rimuovi", danger: true }))) return;
     const { error } = await sb.from("group_members").delete().eq("group_id", state.groupId).eq("user_id", el.dataset.id);
     if (error) return toast(errorText(error), 3000);
     refreshGroup();
   },
   leave: async () => {
-    if (!confirm(`Uscire dal gruppo "${currentGroup().name}"?`)) return;
+    if (!(await modal({ title: "Uscire dal gruppo?", html: `<p>Non vedrai più la classifica di <strong>${esc(currentGroup().name)}</strong>. Potrai rientrare solo con un nuovo invito.</p>`, ok: "Esci dal gruppo", danger: true }))) return;
     const { error } = await sb.from("group_members").delete().eq("group_id", state.groupId).eq("user_id", state.session.user.id);
     if (error) return toast(errorText(error), 3000);
     state.groupId = null;
@@ -912,7 +962,7 @@ const actions = {
   },
   "delete-group": async () => {
     const group = currentGroup();
-    if (!confirm(`Eliminare il gruppo "${group.name}" per tutti? I risultati dei giocatori restano.`)) return;
+    if (!(await modal({ title: "Eliminare il gruppo?", html: `<p>Il gruppo <strong>${esc(group.name)}</strong> sparirà per tutti i suoi membri. I risultati dei giocatori restano nei loro account.</p><p><strong>Non si può annullare.</strong></p>`, ok: "Elimina gruppo", danger: true }))) return;
     const { error } = await sb.from("groups").delete().eq("id", group.id);
     if (error) return toast(errorText(error), 3000);
     state.groupId = null;
@@ -923,16 +973,26 @@ const actions = {
     $app.querySelector("input").value = state.profile.display_name;
   },
   "delete-account": async () => {
-    const ok = confirm(
-      "Eliminare il tuo account?\n\n" +
-        "Verranno cancellati per sempre la tua email, il tuo nome, i tuoi risultati e la tua presenza nei gruppi. " +
-        "I gruppi che hai creato passano a chi è entrato per primo dopo di te; quelli dove sei da solo vengono eliminati.\n\n" +
-        "Potrai sempre rientrare con la stessa email, ma ripartirai da zero."
-    );
+    const ok = await modal({
+      title: "Eliminare il tuo account?",
+      danger: true,
+      html: `<p class="warning">Questa operazione è <strong>definitiva</strong>: non si può annullare e i dati non si possono recuperare.</p>
+        <p>Verranno cancellati per sempre:</p>
+        <ul>
+          <li>la tua email e il tuo nome</li>
+          <li>tutti i tuoi risultati e le statistiche</li>
+          <li>la tua presenza in tutti i gruppi</li>
+        </ul>
+        <p class="muted small">I gruppi che hai creato passano a chi è entrato per primo dopo di te; quelli in cui sei da solo vengono eliminati.</p>
+        <p>Per confermare scrivi <strong>ELIMINA</strong>:</p>`,
+      input: { placeholder: "ELIMINA", maxlength: 10 },
+      requireText: "ELIMINA",
+      ok: "Elimina per sempre",
+    });
     if (!ok) return;
     const { error } = await sb.rpc("delete_my_account");
     if (error) return toast(errorText(error), 3000);
-    ["parle-synced", "parle-group", "parle-groups"].forEach((k) => store(k, null));
+    ["parle-synced", "parle-group", "parle-groups", "parle-login-email"].forEach((k) => store(k, null));
     state.data = {};
     state.groups = [];
     state.groupId = null;
