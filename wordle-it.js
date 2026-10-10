@@ -1099,7 +1099,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                                   for (var t = 0; t < s.length; t++)
                                       if (s[t] === Ia && e[t] !== a[t]) return {
                                           validGuess: !1,
-                                          errorMessage: "".concat((o = t + 1, r = void 0, n = void 0, r = ["th", "st", "nd", "rd"], n = o % 100, o + (r[(n - 20) % 10] || r[n] || r[0])), " letter must be ").concat(a[t].toUpperCase())
+                                          errorMessage: "La ".concat((o = t + 1, r = void 0, n = void 0, o), "ª lettera deve essere ").concat(a[t].toUpperCase())
                                       };
                                   for (var o, r, n, i = {}, l = 0; l < s.length; l++)[Ia, Ta].includes(s[l]) && (i[a[l]] ? i[a[l]] += 1 : i[a[l]] = 1);
                                   var d = e.split("").reduce((function(e, a) {
@@ -1108,7 +1108,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                                   for (var u in i)
                                       if ((d[u] || 0) < i[u]) return {
                                           validGuess: !1,
-                                          errorMessage: "Guess must contain ".concat(u.toUpperCase())
+                                          errorMessage: "La parola deve contenere ".concat(u.toUpperCase())
                                       };
                                   return {
                                       validGuess: !0
