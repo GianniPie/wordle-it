@@ -478,6 +478,22 @@ function renderSettings() {
       ${row("Tema", '"Sistema" segue le impostazioni del dispositivo',
         choice("theme", "light", "Chiaro", mode === "light") + choice("theme", "dark", "Scuro", mode === "dark") + choice("theme", "system", "Sistema", mode === "system"))}
       ${readFlag("colorBlindTheme") ? row("Colori ad alto contrasto", "", onOff("color-blind-theme", true)) : ""}
+    </div>
+    <div class="card credits">
+      <h2 class="card-title">Crediti</h2>
+      <div class="credit">
+        <span>Feedback</span>
+        <span><a href="https://github.com/pietroppeter/wordle-it/issues/new" target="_blank" rel="noopener" title="github.com/pietroppeter/wordle-it">Github</a>
+          | <a href="https://twitter.com/intent/tweet?screen_name=pietroppeter" target="_blank" rel="noopener" title="@pietroppeter">Twitter</a></span>
+      </div>
+      <div class="credit">
+        <span>Correzione del fuso orario</span>
+        <a href="https://github.com/MichaelSiddi" target="_blank" rel="noopener">MichaelSiddi</a>
+      </div>
+      <div class="credit">
+        <span>Classifiche e nuove funzioni</span>
+        <a href="https://github.com/GianniPie" target="_blank" rel="noopener">GianniPie</a>
+      </div>
     </div>`);
 }
 

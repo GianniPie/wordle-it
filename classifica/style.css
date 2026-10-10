@@ -891,3 +891,17 @@ main:has(> .help-page) { padding-bottom: 10px; }
 .help-page .tile-row { grid-template-columns: repeat(5, var(--tile)); }
 .help-page .tile { width: var(--tile); height: var(--tile); font-size: calc(var(--tile) * 0.6); line-height: 1; }
 .help-page .card-note { margin-top: 0; }
+
+/* Impostazioni: credits, one row per contribution */
+.credit {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 14px;
+  border-top: 1px solid var(--color-tone-4);
+}
+.credit:last-child { padding-bottom: 0; }
+.credits .card-title { margin-bottom: 8px; }
+.credit a { font-weight: 600; }
