@@ -874,7 +874,8 @@ main:has(> .stats-page) { padding-bottom: 10px; }
 /* Come giocare fills the screen height: the card takes the space left, the examples spread out in it
    and the tiles grow on tall screens and shrink on short ones. */
 main:has(> .help-page) { padding-bottom: 10px; }
-.help-page { display: flex; flex-direction: column; min-height: 100%; --tile: clamp(26px, 5.6dvh, 52px); }
+/* same height rule as Le mie statistiche: the visible screen minus the header (51px) and the page margins */
+.help-page { display: flex; flex-direction: column; min-height: calc(100dvh - 51px - 18px); --tile: clamp(24px, 5.2dvh, 52px); }
 .help-page .page-title { margin: clamp(4px, 1.2dvh, 12px) 0 clamp(6px, 1.4dvh, 14px); }
 .help-page .page-intro { margin-bottom: clamp(8px, 1.6dvh, 16px); }
 .help-page .card { flex: 1; display: flex; flex-direction: column; }
