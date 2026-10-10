@@ -19,8 +19,8 @@
     }
   ],
   "start_url": "./",
-  "background_color": "#6aaa64",
+  "background_color": "#538d4e",
   "display": "standalone",
-  "theme_color": "#6aaa64",
+  "theme_color": "#538d4e",
   "description": "Un gioco di parole al giorno (wordle in italiano)"
 }
