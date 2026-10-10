@@ -499,21 +499,36 @@ function renderSettings() {
   if (!state.versionLoaded) loadVersion();
 }
 
-// Version of the code on this site: the last commit of its GitHub repository (wordle-it for the site,
-// wordle-it-test for the test site, the working branch elsewhere), short id and date.
+// Version of the code this site is serving: the last successful GitHub Pages deployment of its
+// repository (wordle-it for the site, wordle-it-test for the test site), short commit id and date.
+// Elsewhere (local server) the last commit of the working branch. Kept on the device for offline use.
 async function loadVersion() {
   const site = location.pathname.split("/")[1];
-  const ref = site === "wordle-it" || site === "wordle-it-test" ? `${site}/commits/master` : "wordle-it/commits/leaderboard";
-  try {
-    const res = await fetch(`https://api.github.com/repos/GianniPie/${ref}`);
-    if (!res.ok) return;
-    const c = await res.json();
-    const date = new Date(c.commit.committer.date).toLocaleDateString("it-IT", { day: "numeric", month: "numeric", year: "numeric" });
-    state.version = `${c.sha.slice(0, 7)} del ${date}`;
+  const api = "https://api.github.com/repos/GianniPie/";
+  const show = (sha, when) => {
+    const date = new Date(when).toLocaleDateString("it-IT", { day: "numeric", month: "numeric", year: "numeric" });
+    state.version = `${sha.slice(0, 7)} del ${date}`;
     state.versionLoaded = true;
     store("parle-version", state.version); // shown again offline, until the next answer from GitHub
     const el = document.querySelector(".app-version");
     if (el) el.textContent = `Versione ${state.version}`;
+  };
+  try {
+    if (site === "wordle-it" || site === "wordle-it-test") {
+      const res = await fetch(`${api}${site}/deployments?environment=github-pages&per_page=5`);
+      if (!res.ok) return;
+      for (const d of await res.json()) {
+        // The newest deployment that went through: a failed one, or one still in progress,
+        // leaves the previous files online.
+        const st = await fetch(d.statuses_url).then((r) => (r.ok ? r.json() : []));
+        if (st[0]?.state === "success") return show(d.sha, st[0].created_at);
+      }
+    } else {
+      const res = await fetch(`${api}wordle-it/commits/leaderboard`);
+      if (!res.ok) return;
+      const c = await res.json();
+      show(c.sha, c.commit.committer.date);
+    }
   } catch {}
 }
 
