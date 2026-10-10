@@ -906,3 +906,17 @@ main:has(> .help-page) { padding-bottom: 10px; }
 .credits .card-title { margin-bottom: 8px; }
 .credit a { font-weight: 600; }
 .app-version { margin: 12px 0 0; min-height: 1.4em; }
+
+/* Classifica: the explanation opens on demand, closed by default */
+details.explain { margin-top: 10px; }
+details.explain > summary { cursor: pointer; list-style: none; padding: 4px 0; }
+details.explain > summary::-webkit-details-marker { display: none; }
+details.explain > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 14px;
+  color: var(--color-correct);
+  transition: transform 0.15s;
+}
+details.explain[open] > summary::before { transform: rotate(90deg); }
+details.explain p { margin: 4px 0 0; }

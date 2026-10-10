@@ -1433,7 +1433,9 @@ function standingsModule(stats) {
         )
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito. La partita di oggi entra in classifica quando l'hanno giocata tutti, o comunque a mezzanotte (ora italiana).</p>`;
+    <details class="explain muted small"${state.explainOpen ? " open" : ""}><summary>Come funziona la classifica</summary>
+      <p>La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito. La partita di oggi entra in classifica quando l'hanno giocata tutti, o comunque a mezzanotte (ora italiana).</p>
+    </details>`;
   return { body };
 }
 
@@ -1853,5 +1855,8 @@ $app.addEventListener("submit", (e) => {
   e.preventDefault();
   forms[e.target.dataset.form]?.(e.target);
 });
+
+// The explanation under the standings stays open (or closed) when the page is redrawn.
+document.addEventListener("toggle", (e) => e.target.matches?.("details.explain") && (state.explainOpen = e.target.open), true);
 
 init();
