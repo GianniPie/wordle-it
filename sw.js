@@ -2,12 +2,13 @@
 // Pages and app files: network first (updates arrive as soon as they are published), the copy when offline.
 // Libraries from the CDNs: the copy first (their addresses don't change), downloaded once.
 // Supabase data is never handled here: the pages keep their own last data.
-const CACHE = "parle-v2";
+const CACHE = "parle-v3";
 const APP_FILES = [
   "./",
   "index.html",
   "wordle-it.js",
   "manifest.json",
+  "images/parle_logo.svg",
   "images/parle_logo_32x32.png",
   "images/parle_logo_192x192.png",
   "classifica/",
