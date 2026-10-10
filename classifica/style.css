@@ -578,12 +578,12 @@ main a:not(.button) { color: var(--color-tone-1); }
 .card.profile form.rename input { flex: none; width: 100%; }
 
 /* Group page: period picker under the group name */
-.period-picker { display: flex; justify-content: center; margin: 2px 0 14px; }
+.period-picker { display: flex; justify-content: center; margin: 10px 0 14px; }
 select.period {
   appearance: none;
   -webkit-appearance: none;
   min-width: 220px;
-  height: 34px;
+  height: 30px;
   padding: 0 30px;
   text-align: center;
   text-align-last: center;
