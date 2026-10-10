@@ -172,7 +172,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
       return t
   }
   var k = document.createElement("template");
-  k.innerHTML = "\n<style>\n  :host {\n    display: inline-block;\n  }\n  .tile {\n    width: 100%;\n    display: inline-flex;\n    justify-content: center;\n    align-items: center;\n    font-size: 2rem;\n    line-height: 2rem;\n    font-weight: bold;\n    vertical-align: middle;\n    box-sizing: border-box;\n    color: var(--tile-text-color);\n    text-transform: uppercase;\n    user-select: none;\n  }\n  .tile::before {\n    content: '';\n    display: inline-block;\n    padding-bottom: 100%;\n  }\n\n  .tile[data-state='empty'] {\n    border: 2px solid var(--color-tone-4);\n  }\n  .tile[data-state='tbd'] {\n    background-color: var(--color-tone-7);\n    border: 2px solid var(--color-tone-3);\n    color: var(--color-tone-1);\n  }\n  .tile[data-state='correct'] {\n    background-color: var(--color-correct);\n  }\n  .tile[data-state='present'] {\n    background-color: var(--color-present);\n  }\n  .tile[data-state='absent'] {\n    background-color: var(--color-absent);\n  }\n  :host([selected]) .tile {\n    border-color: var(--color-correct);\n    box-shadow: 0 0 0 2px var(--color-correct);\n  }\n\n  .tile[data-animation='pop'] {\n    animation-name: PopIn;\n    animation-duration: 100ms;\n  }\n\n  @keyframes PopIn {\n    from {\n      transform: scale(0.8);\n      opacity: 0;\n    }\n\n    40% {\n      transform: scale(1.1);\n      opacity: 1;\n    }\n  }\n  .tile[data-animation='flip-in'] {\n    animation-name: FlipIn;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipIn {\n    0% {\n      transform: rotateX(0);\n    }\n    100% {\n      transform: rotateX(-90deg);\n    }\n  }\n  .tile[data-animation='flip-out'] {\n    animation-name: FlipOut;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipOut {\n    0% {\n      transform: rotateX(-90deg);\n    }\n    100% {\n      transform: rotateX(0);\n    }\n  }\n</style>\n<div class=\"tile\" data-state=\"empty\" data-animation=\"idle\"></div>\n";
+  k.innerHTML = "\n<style>\n  :host {\n    display: inline-block;\n  }\n  .tile {\n    width: 100%;\n    display: inline-flex;\n    justify-content: center;\n    align-items: center;\n    font-size: 2rem;\n    line-height: 2rem;\n    font-weight: bold;\n    vertical-align: middle;\n    box-sizing: border-box;\n    color: var(--tile-text-color);\n    text-transform: uppercase;\n    user-select: none;\n  }\n  .tile::before {\n    content: '';\n    display: inline-block;\n    padding-bottom: 100%;\n  }\n\n  .tile[data-state='empty'] {\n    border: 2px solid var(--color-tone-4);\n  }\n  .tile[data-state='tbd'] {\n    background-color: var(--color-tone-7);\n    border: 2px solid var(--color-tone-3);\n    color: var(--color-tone-1);\n  }\n  .tile[data-state='correct'] {\n    background-color: var(--color-correct);\n  }\n  .tile[data-state='present'] {\n    background-color: var(--color-present);\n  }\n  .tile[data-state='absent'] {\n    background-color: var(--color-absent);\n  }\n  :host([selected]) .tile {\n    border-color: var(--color-correct);\n    box-shadow: 0 0 0 2px var(--color-correct);\n  }\n  :host([hint]) .tile[data-state='empty'] {\n    border: 2px dashed var(--color-correct);\n    cursor: pointer;\n  }\n  :host([hint]) .tile[data-state='empty']::after {\n    content: attr(data-hint);\n    color: var(--color-correct);\n    opacity: 0.55;\n  }\n  :host([auto]) .tile[data-state='tbd'] {\n    border-color: var(--color-correct);\n  }\n\n  .tile[data-animation='pop'] {\n    animation-name: PopIn;\n    animation-duration: 100ms;\n  }\n\n  @keyframes PopIn {\n    from {\n      transform: scale(0.8);\n      opacity: 0;\n    }\n\n    40% {\n      transform: scale(1.1);\n      opacity: 1;\n    }\n  }\n  .tile[data-animation='flip-in'] {\n    animation-name: FlipIn;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipIn {\n    0% {\n      transform: rotateX(0);\n    }\n    100% {\n      transform: rotateX(-90deg);\n    }\n  }\n  .tile[data-animation='flip-out'] {\n    animation-name: FlipOut;\n    animation-duration: 250ms;\n    animation-timing-function: ease-in;\n  }\n  @keyframes FlipOut {\n    0% {\n      transform: rotateX(-90deg);\n    }\n    100% {\n      transform: rotateX(0);\n    }\n  }\n</style>\n<div class=\"tile\" data-state=\"empty\" data-animation=\"idle\"></div>\n";
   var v = function(e) {
       n(t, e);
       var a = h(t);
@@ -220,12 +220,12 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
       }, {
           key: "_render",
           value: function() {
-              this.$tile && (this.$tile.textContent = this._letter, ["empty", "tbd"].includes(this._state) && (this.$tile.dataset.state = this._state), (["empty", "tbd"].includes(this._state) || this._reveal) && this.$tile.dataset.animation != this._animation && (this.$tile.dataset.animation = this._animation))
+              this.$tile && (this.$tile.dataset.hint = this.getAttribute("hint") || "", this.$tile.textContent = this._letter, ["empty", "tbd"].includes(this._state) && (this.$tile.dataset.state = this._state), (["empty", "tbd"].includes(this._state) || this._reveal) && this.$tile.dataset.animation != this._animation && (this.$tile.dataset.animation = this._animation))
           }
       }], [{
           key: "observedAttributes",
           get: function() {
-              return ["letter", "evaluation", "reveal"]
+              return ["letter", "evaluation", "reveal", "hint", "auto"]
           }
       }]), t
   }(c(HTMLElement));
@@ -312,13 +312,17 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               var e = this;
               this.$row && this.$tiles.forEach((function(a, s) {
                   var t = e._letters[s];
-                  t ? a.setAttribute("letter", t) : a.removeAttribute("letter"), s === e._selected ? a.setAttribute("selected", "") : a.removeAttribute("selected")
+                  t ? a.setAttribute("letter", t) : a.removeAttribute("letter"), s === e._selected ? a.setAttribute("selected", "") : a.removeAttribute("selected");
+                  // Green letters already found: shown faded in empty tiles ("ghost") or marked when written by the game ("auto").
+                  var h = (e.getAttribute("hints") || "")[s],
+                      m = e.getAttribute("hint-mode");
+                  h && h !== " " && "ghost" === m && !t ? a.setAttribute("hint", h) : a.removeAttribute("hint"), h && h !== " " && "auto" === m && t === h ? a.setAttribute("auto", "") : a.removeAttribute("auto")
               }))
           }
       }], [{
           key: "observedAttributes",
           get: function() {
-              return ["letters", "length", "invalid", "win", "selected"]
+              return ["letters", "length", "invalid", "win", "selected", "hints", "hint-mode"]
           }
       }]), t
   }(c(HTMLElement));
@@ -1177,6 +1181,42 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   a && (null == e ? a.removeAttribute("selected") : a.setAttribute("selected", e))
               }
           }, {
+              // Letter help chosen in Impostazioni: "auto" writes the green letters already found, "ghost" shows them faded.
+              key: "hintMode",
+              value: function() {
+                  var m = window.localStorage.getItem("parle-hints");
+                  return "auto" === m || "ghost" === m ? m : null
+              }
+          }, {
+              // Green letters found in the rows already played, by position ("" where none).
+              key: "knownLetters",
+              value: function() {
+                  for (var e = ["", "", "", "", ""], a = 0; a < this.rowIndex; a++)
+                      for (var s = 0; s < 5; s++) this.evaluations[a] && this.evaluations[a][s] === Ia && (e[s] = this.boardState[a][s]);
+                  return e
+              }
+          }, {
+              // Writes the known green letters that come next in the row (Autocompila).
+              key: "autoFill",
+              value: function() {
+                  if ("auto" === this.hintMode() && this.gameStatus === Qa && this.rowIndex > 0 && this.rowIndex < 6) {
+                      for (var e = this.knownLetters(), a = !1; this.tileIndex < 5 && e[this.tileIndex];) this.boardState[this.rowIndex] += e[this.tileIndex], this.tileIndex += 1, a = !0;
+                      a && this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex])
+                  }
+              }
+          }, {
+              // A new row: marks the known green letters on it and, in Autocompila, writes the first ones.
+              key: "applyHints",
+              value: function() {
+                  var e = this.hintMode();
+                  if (e && this.gameStatus === Qa && this.rowIndex > 0 && this.rowIndex < 6) {
+                      var a = this.$board.querySelectorAll("game-row")[this.rowIndex];
+                      a.setAttribute("hint-mode", e), a.setAttribute("hints", this.knownLetters().map((function(e) {
+                          return e || " "
+                      })).join("")), this.autoFill()
+                  }
+              }
+          }, {
               key: "addLetter",
               value: function(e) {
                   // Play time starts with the first letter of the day.
@@ -1188,12 +1228,19 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                           s = this.$board.querySelectorAll("game-row")[this.rowIndex];
                       return this.boardState[this.rowIndex] = a.slice(0, this.selectedTile) + e + a.slice(this.selectedTile + 1), s.setAttribute("letters", this.boardState[this.rowIndex]), s.removeAttribute("invalid"), void this.selectTile(this.selectedTile + 1 < this.tileIndex ? this.selectedTile + 1 : null)
                   }
-                  this.gameStatus === Qa && (this.canInput && (this.tileIndex >= 5 || (this.boardState[this.rowIndex] += e, this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex]), this.tileIndex += 1)))
+                  this.gameStatus === Qa && (this.canInput && (this.tileIndex >= 5 || (this.boardState[this.rowIndex] += e, this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex]), this.tileIndex += 1, this.autoFill())))
               }
           }, {
               key: "removeLetter",
               value: function() {
                   if (null != this.selectedTile) return void this.selectTile(null);
+                  if ("auto" === this.hintMode() && this.gameStatus === Qa && this.canInput && this.rowIndex > 0) {
+                      for (var k = this.knownLetters(), w = this.boardState[this.rowIndex], n = w.length; n > 0 && k[n - 1] && w[n - 1] === k[n - 1];) n--;
+                      if (0 === n) return;
+                      this.boardState[this.rowIndex] = w.slice(0, n - 1), this.tileIndex = n - 1;
+                      var g = this.$board.querySelectorAll("game-row")[this.rowIndex];
+                      return this.boardState[this.rowIndex] ? g.setAttribute("letters", this.boardState[this.rowIndex]) : g.removeAttribute("letters"), g.removeAttribute("invalid"), void this.autoFill()
+                  }
                   if (this.gameStatus === Qa && this.canInput && !(this.tileIndex <= 0)) {
                       this.boardState[this.rowIndex] = this.boardState[this.rowIndex].slice(0, this.boardState[this.rowIndex].length - 1);
                       var e = this.$board.querySelectorAll("game-row")[this.rowIndex];
@@ -1245,14 +1292,21 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       var s = document.createElement("game-row");
                       s.setAttribute("letters", this.boardState[a]), s.setAttribute("length", 5), this.evaluations[a] && (s.evaluation = this.evaluations[a]), this.$board.appendChild(s)
                   }
+                  setTimeout((function() {
+                      e.applyHints()
+                  }), 0);
                   this.$game.addEventListener("game-key-press", (function(a) {
                       var s = a.detail.key;
                       "←" === s || "Backspace" === s ? e.removeLetter() : "↵" === s || "Enter" === s ? e.submitGuess() : Ga.includes(s.toLowerCase()) && e.addLetter(s.toLowerCase())
                   })), this.$game.addEventListener("game-tile-tap", (function(a) {
                       var s = a.detail.index;
+                      if ("ghost" === e.hintMode() && e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && s === e.tileIndex && null == e.selectedTile) {
+                          var k = e.knownLetters()[s];
+                          if (k) return void e.addLetter(k)
+                      }
                       e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && e.selectTile(s < e.tileIndex && e.selectedTile !== s ? s : null)
                   })), this.$game.addEventListener("game-last-tile-revealed-in-row", (function(a) {
-                      e.$keyboard.letterEvaluations = e.letterEvaluations, e.rowIndex < 6 && (e.canInput = !0);
+                      e.$keyboard.letterEvaluations = e.letterEvaluations, e.rowIndex < 6 && (e.canInput = !0), e.restoringFromLocalStorage || e.applyHints();
                       var s = e.$board.querySelectorAll("game-row")[e.rowIndex - 1];
                       (a.path || a.composedPath && a.composedPath()).includes(s) && ([Za, es].includes(e.gameStatus) && (e.restoringFromLocalStorage ? e.showStatsModal() : (e.gameStatus === Za && (s.setAttribute("win", ""), e.addToast(as[e.rowIndex - 1], 2e3)), e.gameStatus === es && e.addToast(e.solution.toUpperCase(), 1 / 0), setTimeout((function() {
                           e.showStatsModal()

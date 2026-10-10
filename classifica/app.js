@@ -484,6 +484,7 @@ function applyTheme() {
 function renderSettings() {
   const gs = readGameState();
   const mode = themeMode();
+  const hints = ["auto", "ghost"].includes(read("parle-hints")) ? read("parle-hints") : "off"; // read by the game
   // Every setting is a row of buttons in one rounded group, the chosen one in green.
   const choice = (setting, value, label, on) =>
     `<button role="radio" aria-checked="${on}" data-action="setting" data-setting="${setting}" data-value="${value}">${label}</button>`;
@@ -495,6 +496,8 @@ function renderSettings() {
   renderShell(`<h1 class="page-title">Impostazioni</h1>
     <div class="card settings">
       ${row("Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", onOff("hard-mode", !!gs.hardMode))}
+      ${row("Aiuto lettere verdi", "Dalla seconda riga: le lettere già al posto giusto scritte da sole o suggerite in trasparenza",
+        choice("hints", "off", "Off", hints === "off") + choice("hints", "auto", "Autocompila", hints === "auto") + choice("hints", "ghost", "Suggerimento", hints === "ghost"))}
       ${row("Tema", '"Sistema" segue le impostazioni del dispositivo',
         choice("theme", "light", "Chiaro", mode === "light") + choice("theme", "dark", "Scuro", mode === "dark") + choice("theme", "system", "Sistema", mode === "system"))}
       ${readFlag("colorBlindTheme") ? row("Colori ad alto contrasto", "", onOff("color-blind-theme", true)) : ""}
@@ -557,6 +560,9 @@ function changeSetting(setting, value) {
     case "theme":
       store("darkTheme", value === "system" ? null : JSON.stringify(value === "dark"));
       applyTheme();
+      break;
+    case "hints":
+      store("parle-hints", value === "off" ? null : value);
       break;
     case "color-blind-theme":
       store("colorBlindTheme", JSON.stringify(on));
