@@ -230,6 +230,17 @@ async function keep(key, load) {
   }
 }
 
+// Like keep, but when a copy is kept on the device it is returned at once, and the server is asked
+// in the background: onFresh gets the new data only if it differs from the copy shown.
+function keepFast(key, load, onFresh) {
+  const kept = readJSON(`parle-cache-${key}`, null);
+  if (!kept || !navigator.onLine) return keep(key, load);
+  keep(key, load)
+    .then((data) => JSON.stringify(data) !== JSON.stringify(kept.data) && onFresh(data))
+    .catch(() => {});
+  return Promise.resolve(kept.data);
+}
+
 function offlineBanner() {
   if (!state.staleAt) return "";
   const at = new Date(state.staleAt);
@@ -318,8 +329,16 @@ async function route() {
   if (!state.profile || state.profile.id !== state.session.user.id) {
     let profile;
     try {
-      profile = await keep(`profile-${state.session.user.id}`, async () =>
-        must(await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle())
+      profile = await keepFast(
+        `profile-${state.session.user.id}`,
+        async () => must(await sb.from("profiles").select("*").eq("id", state.session.user.id).maybeSingle()),
+        (fresh) => {
+          state.profile = fresh;
+          store("parle-name", fresh?.display_name ?? null);
+          store("parle-avatar", fresh?.avatar_url ?? null);
+          renderMenu();
+          if (!fresh || currentView().name === "account") route();
+        }
       );
     } catch (error) {
       return renderError(error);
@@ -1105,7 +1124,16 @@ async function joinPending() {
 async function loadGroups() {
   let data;
   try {
-    data = await keep(`groups-${state.session.user.id}`, async () => must(await sb.from("groups").select("*").order("created_at")));
+    data = await keepFast(
+      `groups-${state.session.user.id}`,
+      async () => must(await sb.from("groups").select("*").order("created_at")),
+      (fresh) => {
+        state.groups = fresh;
+        store("parle-groups", JSON.stringify(fresh.map((g) => ({ id: g.id, name: g.name }))));
+        if (!fresh.some((g) => g.id === state.groupId)) state.groupId = null;
+        route();
+      }
+    );
   } catch (error) {
     return renderError(error);
   }
@@ -1127,7 +1155,11 @@ async function loadGroup() {
   if (!state.data[group.id]) {
     renderShell(`<p class="muted center">Caricamento...</p>`);
     try {
-      state.data[group.id] = await keep(`group-${group.id}`, () => fetchGroupData(group));
+      state.data[group.id] = await keepFast(`group-${group.id}`, () => fetchGroupData(group), (fresh) => {
+        state.data[group.id] = fresh;
+        // Redrawn with the new results only if the group is still on screen.
+        if (currentView().name === "groups" && state.groupId === group.id) renderGroup();
+      });
     } catch (error) {
       return renderError(error);
     }
@@ -1136,32 +1168,11 @@ async function loadGroup() {
 }
 
 async function fetchGroupData(group) {
-  const { data: members, error } = await sb
-    .from("group_members")
-    .select("user_id, joined_at, profiles(display_name)")
-    .eq("group_id", group.id)
-    .order("joined_at");
-  if (error) throw error;
-  const ids = members.map((m) => m.user_id);
-  const fromDay = monthRange(monthOfDate(new Date(group.created_at))).first;
-  const results = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb
-      .from("results")
-      .select("user_id, day, won, num_guesses")
-      .in("user_id", ids)
-      .gte("day", fromDay)
-      .order("day")
-      .order("user_id")
-      .range(from, from + 999);
-    if (error) throw error;
-    results.push(...data);
-    if (data.length < 1000) break;
-  }
-  return {
-    members: members.map((m) => ({ id: m.user_id, name: m.profiles?.display_name || "?", joinedAt: m.joined_at })),
-    results,
-  };
+  // One request (see group_data on the server): members, and results as [member index, day, won, tries].
+  const d = must(await sb.rpc("group_data", { p_group: group.id }));
+  const members = (d.members || []).map((m) => ({ id: m.id, name: m.name || "?", joinedAt: m.joinedAt }));
+  const results = d.results.map(([i, day, won, n]) => ({ user_id: members[i].id, day, won: won === 1, num_guesses: n }));
+  return { members, results };
 }
 
 function createForm() {
