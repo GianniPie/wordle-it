@@ -240,5 +240,17 @@ sync();
 // The game fires this when the last tile of a row has flipped; by then the finished game is saved.
 window.addEventListener("game-last-tile-revealed-in-row", () => setTimeout(sync, 100));
 // Also when the app is closed or put in the background before the tiles finish turning.
+// An app left open (or in the background) across midnight still shows yesterday's word: when it comes back
+// on a new day the page is reloaded, so the player gets today's word and not yesterday's again.
+function reloadOnNewDay() {
+  const game = document.querySelector("game-app");
+  const now = new Date();
+  const today = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2022, 0, 3)) / 864e5); // like the game
+  if (document.visibilityState === "visible" && game?.dayOffset != null && today !== game.dayOffset) location.reload();
+}
+document.addEventListener("visibilitychange", reloadOnNewDay);
+window.addEventListener("focus", reloadOnNewDay);
+window.addEventListener("pageshow", reloadOnNewDay);
+
 window.addEventListener("pagehide", rememberTime);
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && rememberTime());
