@@ -13,6 +13,7 @@ const state = {
   profile: null,
   groups: [],
   groupId: null,
+  version: read("parle-version"), // last code version read from GitHub (see loadVersion)
   period: null, // months since year 0 (year * 12 + month), or "all" for the whole history
   resultsFlipped: read("parle-results-flipped") === "1", // Risultati: players as rows
   chartMode: read("parle-chart-mode") || "total", // Grafico: "total" or "gap" (distance from the leader)
@@ -495,7 +496,7 @@ function renderSettings() {
       </div>
     </div>
     <p class="app-version muted small center">${state.version ? `Versione ${esc(state.version)}` : ""}</p>`);
-  if (!state.version) loadVersion();
+  if (!state.versionLoaded) loadVersion();
 }
 
 // Version of the code on this site: the last commit of its GitHub repository (wordle-it for the site,
@@ -509,6 +510,8 @@ async function loadVersion() {
     const c = await res.json();
     const date = new Date(c.commit.committer.date).toLocaleDateString("it-IT", { day: "numeric", month: "numeric", year: "numeric" });
     state.version = `${c.sha.slice(0, 7)} del ${date}`;
+    state.versionLoaded = true;
+    store("parle-version", state.version); // shown again offline, until the next answer from GitHub
     const el = document.querySelector(".app-version");
     if (el) el.textContent = `Versione ${state.version}`;
   } catch {}
