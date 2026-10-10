@@ -482,17 +482,16 @@ function renderSettings() {
     <div class="card credits">
       <h2 class="card-title">Crediti</h2>
       <div class="credit">
-        <span>Feedback</span>
-        <span><a href="https://github.com/pietroppeter/wordle-it/issues/new" target="_blank" rel="noopener" title="github.com/pietroppeter/wordle-it">Github</a>
-          | <a href="https://twitter.com/intent/tweet?screen_name=pietroppeter" target="_blank" rel="noopener" title="@pietroppeter">Twitter</a></span>
+        <span>Codice originale</span>
+        <a href="https://github.com/pietroppeter/wordle-it" target="_blank" rel="noopener">pietroppeter</a>
       </div>
       <div class="credit">
         <span>Correzione del fuso orario</span>
-        <a href="https://github.com/MichaelSiddi" target="_blank" rel="noopener">MichaelSiddi</a>
+        <a href="https://github.com/MichaelSiddi/wordle-it" target="_blank" rel="noopener">MichaelSiddi</a>
       </div>
       <div class="credit">
         <span>Classifiche e nuove funzioni</span>
-        <a href="https://github.com/GianniPie" target="_blank" rel="noopener">GianniPie</a>
+        <a href="https://github.com/GianniPie/wordle-it" target="_blank" rel="noopener">GianniPie</a>
       </div>
     </div>`);
 }
