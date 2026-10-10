@@ -905,3 +905,4 @@ main:has(> .help-page) { padding-bottom: 10px; }
 .credit:last-child { padding-bottom: 0; }
 .credits .card-title { margin-bottom: 8px; }
 .credit a { font-weight: 600; }
+.app-version { margin: 12px 0 0; min-height: 1.4em; }

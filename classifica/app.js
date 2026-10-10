@@ -493,7 +493,25 @@ function renderSettings() {
         <span>Classifiche e nuove funzioni</span>
         <a href="https://github.com/GianniPie/wordle-it" target="_blank" rel="noopener">GianniPie</a>
       </div>
-    </div>`);
+    </div>
+    <p class="app-version muted small center">${state.version ? `Versione ${esc(state.version)}` : ""}</p>`);
+  if (!state.version) loadVersion();
+}
+
+// Version of the code on this site: the last commit of its GitHub repository (wordle-it for the site,
+// wordle-it-test for the test site, the working branch elsewhere), short id and date.
+async function loadVersion() {
+  const site = location.pathname.split("/")[1];
+  const ref = site === "wordle-it" || site === "wordle-it-test" ? `${site}/commits/master` : "wordle-it/commits/leaderboard";
+  try {
+    const res = await fetch(`https://api.github.com/repos/GianniPie/${ref}`);
+    if (!res.ok) return;
+    const c = await res.json();
+    const date = new Date(c.commit.committer.date).toLocaleDateString("it-IT", { day: "numeric", month: "numeric", year: "numeric" });
+    state.version = `${c.sha.slice(0, 7)} del ${date}`;
+    const el = document.querySelector(".app-version");
+    if (el) el.textContent = `Versione ${state.version}`;
+  } catch {}
 }
 
 function changeSetting(setting, value) {
