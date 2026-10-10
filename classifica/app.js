@@ -1252,7 +1252,6 @@ function periodStats(data, first, last) {
   const rows = data.members.map((m) => {
     const mine = results.get(m.id);
     const values = [];
-    const counts = [0, 0, 0, 0, 0, 0, 0, 0]; // index = points, 1..7
     const dist = [0, 0, 0, 0, 0, 0, 0]; // 1..6 tries, then X/6
     let played = 0, wins = 0, guesses = 0, missed = 0;
     for (let d = first; d <= countedUntil; d++) {
@@ -1275,13 +1274,12 @@ function periodStats(data, first, last) {
         continue;
       }
       values.push(v);
-      counts[v] += 1;
     }
     const total = values.reduce((a, b) => a + b, 0);
     const mean = values.length ? total / values.length : 0;
     const sd = values.length ? Math.sqrt(values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length) : 0;
     return {
-      ...m, results: mine, points: total, mean, sd, played, wins, guesses, missed, dist, counts,
+      ...m, results: mine, points: total, mean, sd, played, wins, guesses, missed, dist,
       best: values.length ? Math.min(...values) : null,
       worst: values.length ? Math.max(...values) : null,
     };
@@ -1413,7 +1411,6 @@ function standingsModule(stats) {
       <thead><tr>
         <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti +<br>dev. std</th><th>Vinte</th>
         <th>Giocate</th><th>Miglior<br>risultato</th><th>Peggiore<br>risultato</th>
-        ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<th>Ricorrenze<br>${k}</th>`).join("")}
       </tr></thead>
       <tbody>${stats.standings
         .map(
@@ -1428,7 +1425,6 @@ function standingsModule(stats) {
             <td>${s.played}</td>
             <td>${dash(s.best)}</td>
             <td>${dash(s.worst)}</td>
-            ${[1, 2, 3, 4, 5, 6, 7].map((k) => `<td>${s.counts[k]}</td>`).join("")}
           </tr>`
         )
         .join("")}</tbody>
