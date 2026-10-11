@@ -62,7 +62,7 @@ html, body {
 }
 /* Like the game: the page is exactly as tall as the visible screen (dvh, without the phone browser's
    address bar) and never scrolls as a whole; only the content under the header scrolls, when it is long. */
-html, body { height: 100%; height: 100dvh; overflow: hidden; }
+html, body { height: 100%; height: var(--app-height, 100dvh); overflow: hidden; }
 body { display: flex; flex-direction: column; }
 header { flex: none; width: 100%; }
 main { flex: 1; width: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -849,7 +849,7 @@ main:has(> .stats-page) { padding-bottom: 10px; }
 .stats-page {
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - 51px - 18px);
+  min-height: calc(var(--app-height, 100dvh) - 51px - 18px);
 }
 .stats-page .page-title { margin: clamp(4px, 1.2dvh, 12px) 0 clamp(6px, 1.4dvh, 14px); }
 .stats-page .module { display: flex; flex-direction: column; margin-bottom: clamp(6px, 1.2dvh, 12px); }
@@ -875,7 +875,7 @@ main:has(> .stats-page) { padding-bottom: 10px; }
    and the tiles grow on tall screens and shrink on short ones. */
 main:has(> .help-page) { padding-bottom: 10px; }
 /* same height rule as Le mie statistiche: the visible screen minus the header (51px) and the page margins */
-.help-page { display: flex; flex-direction: column; min-height: calc(100dvh - 51px - 18px); --tile: clamp(24px, 5.2dvh, 52px); }
+.help-page { display: flex; flex-direction: column; min-height: calc(var(--app-height, 100dvh) - 51px - 18px); --tile: clamp(24px, 5.2dvh, 52px); }
 .help-page .page-title { margin: clamp(4px, 1.2dvh, 12px) 0 clamp(6px, 1.4dvh, 14px); }
 .help-page .page-intro { margin-bottom: clamp(8px, 1.6dvh, 16px); }
 .help-page .card { flex: 1; display: flex; flex-direction: column; }
