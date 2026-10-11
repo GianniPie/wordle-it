@@ -1353,7 +1353,8 @@ function renderGroup() {
     standings: () => standingsModule(stats),
     results: () => resultsModule(stats),
     chart: () => chartModule(stats),
-    today: () => (showToday ? todayModule(data, stats) : null),
+    // In a past month there is no "today": the module stays, with a short note.
+    today: () => (showToday ? todayModule(data, stats) : { body: `<p class="muted small">Le partite di oggi si vedono con il mese in corso o con la classifica globale.</p>` }),
     distribution: () => distributionModule(stats),
   };
   const modules = moduleOrder()
