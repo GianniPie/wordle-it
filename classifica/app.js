@@ -587,22 +587,13 @@ async function renderStats() {
   if (state.session) {
     let rows;
     try {
-      rows = await keep(`results-${state.session.user.id}`, async () => {
-        const all = [];
-        for (let from = 0; ; from += 1000) {
-          const data = must(
-            await sb
-              .from("results")
-              .select("day, won, num_guesses, play_ms")
-              .eq("user_id", state.session.user.id)
-              .order("day")
-              .range(from, from + 999)
-          );
-          all.push(...data);
-          if (data.length < 1000) break;
-        }
-        return all;
-      });
+      // Shown at once with the copy kept on the device; redrawn if the server has something new.
+      rows = await keepFast(
+        `results-${state.session.user.id}`,
+        async () =>
+          must(await sb.rpc("my_results")).map(([day, won, n, ms]) => ({ day, won: won === 1, num_guesses: n, play_ms: ms })),
+        () => currentView().name === "stats" && renderStats()
+      );
     } catch (error) {
       return renderError(error);
     }
