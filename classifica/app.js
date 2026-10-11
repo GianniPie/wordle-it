@@ -1258,6 +1258,7 @@ function periodStats(data, first, last) {
   const rows = data.members.map((m) => {
     const mine = results.get(m.id);
     const values = [];
+    const daily = new Map(); // day -> points, for the Migliore / Peggiore columns
     const dist = [0, 0, 0, 0, 0, 0, 0]; // 1..6 tries, then X/6
     let played = 0, wins = 0, guesses = 0, missed = 0;
     for (let d = first; d <= countedUntil; d++) {
@@ -1280,16 +1281,28 @@ function periodStats(data, first, last) {
         continue;
       }
       values.push(v);
+      daily.set(d, v);
     }
     const total = values.reduce((a, b) => a + b, 0);
     const mean = values.length ? total / values.length : 0;
     const sd = values.length ? Math.sqrt(values.reduce((a, v) => a + (v - mean) ** 2, 0) / values.length) : 0;
     return {
-      ...m, results: mine, points: total, mean, sd, played, wins, guesses, missed, dist,
+      ...m, results: mine, daily, points: total, mean, sd, played, wins, guesses, missed, dist, bestDays: 0, worstDays: 0,
       best: values.length ? Math.min(...values) : null,
       worst: values.length ? Math.max(...values) : null,
     };
   });
+
+  // Days on which a player alone did the best (fewest points) or the worst result of the group.
+  for (let d = first; d <= countedUntil; d++) {
+    const day = rows.filter((r) => r.daily.has(d));
+    if (day.length < 2) continue;
+    const pts = day.map((r) => r.daily.get(d));
+    const lo = Math.min(...pts), hi = Math.max(...pts);
+    if (lo === hi) continue;
+    if (pts.filter((v) => v === lo).length === 1) day[pts.indexOf(lo)].bestDays += 1;
+    if (pts.filter((v) => v === hi).length === 1) day[pts.indexOf(hi)].worstDays += 1;
+  }
 
   // Ranked on points + standard deviation of the daily points (lower is better): on equal points
   // the steadier player goes first, so there are no ties.
@@ -1416,8 +1429,8 @@ function standingsModule(stats) {
   const dash = (v) => (v == null ? "-" : v);
   const body = `<div class="scroll-x"><table class="standings">
       <thead><tr>
-        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti +<br>dev. std</th><th>Vinte</th>
-        <th>Giocate</th><th>Miglior<br>risultato</th><th>Peggiore<br>risultato</th>
+        <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti +<br>dev. std</th>
+        <th>Giocate</th><th>Migliore</th><th>Peggiore</th><th>Miglior<br>risultato</th><th>Peggiore<br>risultato</th>
       </tr></thead>
       <tbody>${stats.standings
         .map(
@@ -1428,8 +1441,9 @@ function standingsModule(stats) {
             <td>${s.gap == null ? "-" : `+${s.gap}`}</td>
             <td>${s.played || s.missed ? decimals.format(s.mean) : "-"}</td>
             <td>${s.played || s.missed ? decimals.format(s.score) : "-"}</td>
-            <td>${s.wins}</td>
             <td>${s.played}</td>
+            <td>${s.bestDays}</td>
+            <td>${s.worstDays}</td>
             <td>${dash(s.best)}</td>
             <td>${dash(s.worst)}</td>
           </tr>`
@@ -1438,6 +1452,7 @@ function standingsModule(stats) {
     </table></div>
     <details class="explain muted small"${state.explainOpen ? " open" : ""}><summary>Come funziona la classifica</summary>
       <p>La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito. La partita di oggi entra in classifica quando l'hanno giocata tutti, o comunque a mezzanotte (ora italiana).</p>
+      <p><strong>Migliore</strong> e <strong>Peggiore</strong> contano i giorni in cui il giocatore ha fatto, da solo, il risultato migliore o peggiore del gruppo (i pari merito non contano).</p>
     </details>`;
   return { body };
 }
