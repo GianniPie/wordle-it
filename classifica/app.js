@@ -180,6 +180,7 @@ function currentView() {
   if (params.has("statistiche")) return { name: "stats" };
   if (params.has("account")) return { name: "account" };
   if (params.has("nuovo")) return { name: "new-group" };
+  if (params.has("chat")) return { name: "chat", groupId: params.get("chat") || null };
   return { name: "groups", groupId: params.get("gruppo") };
 }
 
@@ -190,6 +191,158 @@ function navigate(url, replace = false) {
   closeMenu();
   document.querySelector("main")?.scrollTo(0, 0); // the content scrolls inside main, not the page
   route();
+}
+
+// ---------- chat: every game of the group, as it is shared, with push notifications ----------
+
+// Public key of the server that sends the notifications (VAPID); the private one is a server secret.
+const PUSH_KEY = "BHTYjkJcmvtGoPZAe8pL9Uv4MSOSRJJXgoOK3Wd-i-TqQNirSID7COHEzIap-eb8YPE1whRNKTDWEkMoPZVfhvE";
+// The site the notifications open (this one: the real site or the test site).
+const SITE = location.origin + location.pathname.replace(/classifica\/.*$/, "");
+
+const CHAT_DAY = new Intl.DateTimeFormat("it", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+const CHAT_TIME = new Intl.DateTimeFormat("it", { hour: "2-digit", minute: "2-digit" });
+
+async function renderChat() {
+  const group = currentGroup();
+  store("parle-group", group.id);
+  renderMenu();
+  const picker = state.groups.length > 1
+    ? `<div class="period-picker"><select class="period chat-group" aria-label="Gruppo">${state.groups
+        .map((g) => `<option value="${esc(g.id)}"${g.id === group.id ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select></div>`
+    : `<p class="chat-group-name">${esc(group.name)}</p>`;
+  renderShell(`<div class="chat-page"><h1 class="page-title">Chat</h1>${picker}
+    <div class="card chat-push" id="chat-push"></div>
+    <div class="chat" id="chat"><p class="muted center">Caricamento...</p></div></div>`);
+  renderPushCard();
+  let feed;
+  try {
+    feed = await keepFast(`feed-${group.id}`, async () => must(await sb.rpc("group_feed", { p_group: group.id, p_days: 30 })), (fresh) => {
+      if (currentView().name === "chat" && state.groupId === group.id) drawChat(group, fresh);
+    });
+  } catch (error) {
+    return renderError(error);
+  }
+  if (currentView().name === "chat" && state.groupId === group.id) drawChat(group, feed);
+}
+
+// New messages while the page is open: every 30 seconds, when coming back to it, and when a notification arrives.
+async function refreshChat() {
+  if (currentView().name !== "chat" || document.visibilityState !== "visible") return;
+  const group = currentGroup();
+  if (!group) return;
+  try {
+    const fresh = must(await sb.rpc("group_feed", { p_group: group.id, p_days: 30 }));
+    store(`parle-cache-feed-${group.id}`, JSON.stringify({ at: Date.now(), data: fresh }));
+    if (currentView().name === "chat" && state.groupId === group.id) drawChat(group, fresh);
+  } catch {}
+}
+setInterval(refreshChat, 30000);
+document.addEventListener("visibilitychange", refreshChat);
+navigator.serviceWorker?.addEventListener("message", (e) => e.data?.type === "parle-push" && refreshChat());
+
+function drawChat(group, feed) {
+  const box = document.getElementById("chat");
+  if (!box) return;
+  const me = state.session.user.id;
+  const data = state.data[group.id];
+  const colorOf = (id) => {
+    const i = data?.members?.findIndex((m) => m.id === id) ?? -1;
+    return LINE_COLORS[(i >= 0 ? i : [...id].reduce((a, c) => a + c.charCodeAt(0), 0)) % LINE_COLORS.length];
+  };
+  const items = [...feed].sort((a, b) => a.day - b.day || String(a.at).localeCompare(String(b.at)));
+  if (!items.length) {
+    box.innerHTML = `<p class="muted center small">Ancora nessuna partita negli ultimi 30 giorni.</p>`;
+    return;
+  }
+  const today = dayNumber(new Date());
+  let lastDay = null;
+  const parts = [];
+  for (const m of items) {
+    if (m.day !== lastDay) {
+      lastDay = m.day;
+      const label = m.day === today ? "Oggi" : m.day === today - 1 ? "Ieri" : CHAT_DAY.format(dayDate(m.day));
+      parts.push(`<div class="chat-day"><span>${esc(label)} · n°${m.day}</span></div>`);
+    }
+    const mine = m.user === me;
+    // History imported from the sheet: no words, so no grid and no real time.
+    const time = m.grid ? CHAT_TIME.format(new Date(m.at)) : "";
+    parts.push(`<div class="bubble${mine ? " mine" : ""}">
+        ${mine ? "" : `<div class="who" style="color:${colorOf(m.user)}">${esc(m.name)}</div>`}
+        <div class="text">Par🇮🇹le n°${m.day} ${m.won ? m.n : "X"}/6</div>
+        ${m.grid ? `<div class="grid">${esc(m.grid)}</div>` : ""}
+        ${time ? `<div class="time">${time}</div>` : ""}
+      </div>`);
+  }
+  const main = document.querySelector("main");
+  const atBottom = main.scrollHeight - main.scrollTop - main.clientHeight < 80;
+  const first = !box.querySelector(".bubble");
+  box.innerHTML = parts.join("");
+  if (first || atBottom) main.scrollTop = main.scrollHeight; // the newest messages, like a chat
+}
+
+// ---------- push notifications on this device ----------
+
+function pushSupported() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+
+async function pushSubscription() {
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+
+async function renderPushCard() {
+  const card = document.getElementById("chat-push");
+  if (!card) return;
+  if (!pushSupported()) {
+    card.innerHTML = `<p class="card-text muted small">Le notifiche non sono disponibili in questo browser. Su iPhone funzionano con l'app installata sulla schermata Home.</p>`;
+    return;
+  }
+  if (Notification.permission === "denied") {
+    card.innerHTML = `<p class="card-text muted small">Le notifiche sono bloccate per questo sito: puoi riattivarle dalle impostazioni del browser.</p>`;
+    return;
+  }
+  const sub = await pushSubscription().catch(() => null);
+  card.innerHTML = sub
+    ? `<div class="chat-push-row"><span class="small">🔔 Notifiche attive su questo dispositivo</span>
+         <button class="secondary tiny-secondary" data-action="push-off">Disattiva</button></div>`
+    : `<h2 class="card-title">Notifiche</h2>
+       <p class="card-text muted small">Ricevi un avviso quando qualcuno del gruppo ha giocato.</p>
+       <div class="card-actions"><button class="primary" data-action="push-on">Attiva notifiche</button></div>`;
+}
+
+function keyBytes(base64url) {
+  const b = atob(base64url.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(b, (c) => c.charCodeAt(0));
+}
+
+async function pushOn() {
+  try {
+    if ((await Notification.requestPermission()) !== "granted") return renderPushCard();
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUSH_KEY) }));
+    must(await sb.rpc("save_push_subscription", { p_subscription: sub.toJSON(), p_site: SITE }));
+    toast("Notifiche attivate");
+  } catch (error) {
+    toast(errorText(error), 3000);
+  }
+  renderPushCard();
+}
+
+async function pushOff() {
+  try {
+    const sub = await pushSubscription();
+    if (sub) {
+      await sb.rpc("delete_push_subscription", { p_endpoint: sub.endpoint });
+      await sub.unsubscribe();
+    }
+    toast("Notifiche disattivate");
+  } catch (error) {
+    toast(errorText(error), 3000);
+  }
+  renderPushCard();
 }
 
 function currentGroup() {
@@ -366,6 +519,7 @@ async function route() {
   if (view.name === "new-group") return renderCreate();
   if (view.groupId && state.groups.some((g) => g.id === view.groupId)) state.groupId = view.groupId;
   if (!state.groupId) return renderNoGroups();
+  if (view.name === "chat") return renderChat();
   state.period = savedPeriod();
   loadGroup();
 }
@@ -381,7 +535,9 @@ function renderMenu() {
   const groups = stats + (state.session
     ? state.groups
         .map((g) => `<a class="item sub" data-nav href="?gruppo=${encodeURIComponent(g.id)}"${current(view.name === "groups" && g.id === state.groupId)}>${esc(g.name)}</a>`)
-        .join("") + `<a class="item sub" data-nav href="?nuovo"${current(view.name === "new-group")}>+ Nuovo gruppo</a>`
+        .join("") +
+      (state.groups.length ? `<a class="item sub" data-nav href="?chat"${current(view.name === "chat")}>💬 Chat</a>` : "") +
+      `<a class="item sub" data-nav href="?nuovo"${current(view.name === "new-group")}>+ Nuovo gruppo</a>`
     : "");
   $menu.innerHTML = `
     <a class="item" href="../">${icon("M8 5v14l11-7z")}Gioca</a>
@@ -1685,6 +1841,8 @@ async function refreshGroup() {
 }
 
 const actions = {
+  "push-on": pushOn,
+  "push-off": pushOff,
   reload: () => location.reload(),
   "login-again": () => {
     store("parle-login-email", null);
@@ -1840,6 +1998,10 @@ $app.addEventListener("click", (e) => {
 });
 
 $app.addEventListener("change", (e) => {
+  if (e.target.matches("select.chat-group")) {
+    state.groupId = e.target.value;
+    return navigate(`?chat=${encodeURIComponent(e.target.value)}`, true);
+  }
   if (e.target.matches("select.period")) {
     state.period = e.target.value === "all" ? "all" : Number(e.target.value);
     store("parle-period", state.period === "all" ? "all" : state.period === monthOfDate(new Date()) ? "current" : String(state.period));

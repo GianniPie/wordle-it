@@ -1,0 +1,26 @@
+{
+  "short_name": "Parle TEST",
+  "name": "Par🇮🇹le TEST",
+  "icons": [
+    {
+      "src": "images/test/parle_logo_192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "images/test/parle_logo_512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "images/test/parle_logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "./",
+  "background_color": "#538d4e",
+  "display": "standalone",
+  "theme_color": "#538d4e",
+  "description": "Un gioco di parole al giorno (wordle in italiano)"
+}

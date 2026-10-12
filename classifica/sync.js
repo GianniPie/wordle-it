@@ -36,6 +36,7 @@ function renderGroups() {
   box.innerHTML =
     stats +
     groups.map((g) => `<a class="item sub" href="classifica/?gruppo=${encodeURIComponent(g.id)}">${esc(g.name)}</a>`).join("") +
+    (groups.length ? `<a class="item sub" href="classifica/?chat">💬 Chat</a>` : "") +
     `<a class="item sub" href="classifica/?nuovo">+ Nuovo gruppo</a>`;
 }
 

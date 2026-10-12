@@ -920,3 +920,38 @@ details.explain > summary::before {
 }
 details.explain[open] > summary::before { transform: rotate(90deg); }
 details.explain p { margin: 4px 0 0; }
+
+/* Chat: one bubble per game, like the result shared in a messaging app */
+.chat-group-name { margin: -8px 0 12px; text-align: center; font-weight: 600; color: var(--color-correct); }
+.chat-push { margin-bottom: 12px; }
+.chat-push-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+button.tiny-secondary { height: 30px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
+.chat { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; }
+.chat-day { text-align: center; margin: 10px 0 4px; }
+.chat-day span {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--color-tone-2);
+  background: var(--color-tone-6);
+  border-radius: 8px;
+}
+.bubble {
+  align-self: flex-start;
+  max-width: 78%;
+  padding: 7px 10px 5px;
+  background: var(--color-tone-7);
+  border: 1px solid var(--color-tone-4);
+  border-radius: 12px 12px 12px 4px;
+  box-shadow: var(--shadow);
+}
+.bubble.mine {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--color-correct) 18%, var(--color-tone-7));
+  border-color: color-mix(in srgb, var(--color-correct) 40%, var(--color-tone-4));
+  border-radius: 12px 12px 4px 12px;
+}
+.bubble .who { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.bubble .text { font-size: 16px; }
+.bubble .grid { margin-top: 6px; font-size: 18px; line-height: 1.15; white-space: pre; letter-spacing: 1px; }
+.bubble .time { margin-top: 2px; text-align: right; font-size: 11px; color: var(--color-tone-2); }
