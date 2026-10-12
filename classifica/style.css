@@ -940,8 +940,7 @@ details.explain p { margin: 4px 0 0; }
   position: relative;
   max-width: 78%;
   padding: 7px 10px 5px;
-  /* a shade of the text colour over the page: a bit darker in the light theme, a bit lighter in the dark one */
-  background: color-mix(in srgb, var(--color-tone-1) 9%, var(--color-tone-7));
+  background: var(--color-tone-7);
   border-radius: 0 12px 12px 12px;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
 }
@@ -965,3 +964,6 @@ details.explain p { margin: 4px 0 0; }
 .bubble .text { font-size: 16px; }
 .bubble .grid { margin-top: 6px; font-size: 18px; line-height: 1.15; white-space: pre; letter-spacing: 1px; }
 .bubble .time { margin-top: 2px; text-align: right; font-size: 11px; color: var(--color-tone-2); }
+
+/* Chat background in contrast with the bubbles, like a messaging app */
+main:has(> .chat-page) { background: color-mix(in srgb, var(--color-tone-1) 9%, var(--color-tone-7)); }
