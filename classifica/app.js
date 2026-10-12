@@ -152,8 +152,11 @@ function monthLabel(month, withYear = true) {
   return (withYear ? MONTH_FMT : MONTH_NAME).format(d);
 }
 
+// Invitations always open the real site (the one friends play on), also when shared from the test site.
+const INVITE_PAGE = "https://giannipie.github.io/wordle-it/classifica/";
+
 function inviteUrl(code) {
-  return `${location.origin}${location.pathname}?join=${encodeURIComponent(code)}&da=${state.session.user.id}`;
+  return `${INVITE_PAGE}?join=${encodeURIComponent(code)}&da=${state.session.user.id}`;
 }
 
 function invitePreview() {
