@@ -994,3 +994,50 @@ main:has(> .chat-page) { background: var(--chat-bg); }
 .bubble .text { font-size: 16px; }
 .bubble .grid { margin-top: 6px; font-size: 18px; line-height: 1.15; white-space: pre; letter-spacing: 1px; }
 .bubble .time { margin-top: 2px; text-align: right; font-size: 11px; color: var(--chat-time); }
+
+/* Chat: written messages and the bar to write them, always at the bottom */
+.bubble .text.written { font-size: 15px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+main:has(> .chat-page) { padding-bottom: 0; }
+.chat-page { display: flex; flex-direction: column; min-height: 100%; }
+.chat { flex: 1; }
+.chat-compose {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 8px 12px 10px;
+  background: var(--chat-bg);
+}
+.chat-compose textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 11px 14px;
+  font: inherit;
+  font-size: 16px; /* 16px: phones do not zoom in on the field */
+  line-height: 1.35;
+  resize: none;
+  color: var(--chat-text);
+  background: var(--chat-bubble);
+  border: none;
+  border-radius: 22px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+  outline: none;
+}
+.chat-compose .send {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: #fff;
+  background: var(--color-correct);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.chat-compose .send:disabled { opacity: 0.6; }

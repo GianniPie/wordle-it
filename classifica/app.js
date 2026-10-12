@@ -212,7 +212,12 @@ async function renderChat() {
   renderMenu();
   // Each group has its own chat, chosen from the menu (Chat, then the group's name).
   renderShell(`<div class="chat-page"><div class="chat-head"><h1>${esc(group.name)}</h1><p>Chat del gruppo</p></div>
-    <div class="chat" id="chat"><p class="muted center">Caricamento...</p></div></div>`);
+    <div class="chat" id="chat"><p class="muted center">Caricamento...</p></div>
+    <form class="chat-compose" data-form="chat" autocomplete="off">
+      <textarea name="text" rows="1" maxlength="2000" placeholder="Scrivi un messaggio" aria-label="Messaggio"></textarea>
+      <button class="send" type="submit" aria-label="Invia"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+    </form></div>`);
+  listenToChat(group.id);
   let feed;
   try {
     feed = await keepFast(`feed-${group.id}`, async () => must(await sb.rpc("group_feed", { p_group: group.id, p_days: 30 })), (fresh) => {
@@ -248,7 +253,7 @@ function drawChat(group, feed) {
     const i = data?.members?.findIndex((m) => m.id === id) ?? -1;
     return LINE_COLORS[(i >= 0 ? i : [...id].reduce((a, c) => a + c.charCodeAt(0), 0)) % LINE_COLORS.length];
   };
-  const items = [...feed].sort((a, b) => a.day - b.day || String(a.at).localeCompare(String(b.at)));
+  const items = [...feed].sort((a, b) => String(a.at).localeCompare(String(b.at)));
   if (!items.length) {
     box.innerHTML = `<p class="muted center small">Ancora nessuna partita negli ultimi 30 giorni.</p>`;
     return;
@@ -264,14 +269,16 @@ function drawChat(group, feed) {
     }
     const mine = m.user === me;
     // History imported from the sheet: no words, so no grid and no real time.
-    const time = m.grid ? CHAT_TIME.format(new Date(m.at)) : "";
+    const time = m.kind === "text" || m.grid ? CHAT_TIME.format(new Date(m.at)) : "";
+    const body = m.kind === "text"
+      ? `<div class="text written">${esc(m.text)}</div>`
+      : `<div class="text">Par🇮🇹le n°${m.day} ${m.won ? m.n : "X"}/6</div>${m.grid ? `<div class="grid">${esc(m.grid)}</div>` : ""}`;
     // Like a messaging app: the others with their avatar on the left, a tail from each bubble.
     parts.push(`<div class="msg${mine ? " mine" : ""}">
         ${mine ? "" : avatarHtml({ display_name: m.name, avatar_url: m.avatar }, "avatar chat-avatar")}
         <div class="bubble${mine ? " mine" : ""}">
           ${mine ? "" : `<div class="who" style="color:${colorOf(m.user)}">${esc(m.name)}</div>`}
-          <div class="text">Par🇮🇹le n°${m.day} ${m.won ? m.n : "X"}/6</div>
-          ${m.grid ? `<div class="grid">${esc(m.grid)}</div>` : ""}
+          ${body}
           ${time ? `<div class="time">${time}</div>` : ""}
         </div>
       </div>`);
@@ -281,6 +288,60 @@ function drawChat(group, feed) {
   const first = !box.querySelector(".bubble");
   box.innerHTML = parts.join("");
   if (first || atBottom) main.scrollTop = main.scrollHeight; // the newest messages, like a chat
+}
+
+// Messages written in the chat.
+async function sendChat(form) {
+  const field = form.text;
+  const text = field.value.trim();
+  if (!text) return;
+  const button = form.querySelector(".send");
+  button.disabled = true;
+  try {
+    must(await sb.rpc("send_message", { p_group: state.groupId, p_text: text }));
+    field.value = "";
+    fitComposer(field);
+    await refreshChat();
+    const main = document.querySelector("main");
+    main.scrollTop = main.scrollHeight;
+  } catch (error) {
+    toast(errorText(error), 3000);
+  } finally {
+    button.disabled = false;
+    field.focus();
+  }
+}
+
+// The field grows with the text, up to a few lines.
+function fitComposer(field) {
+  field.style.height = "auto";
+  field.style.height = `${Math.min(field.scrollHeight, 120)}px`;
+}
+
+$app.addEventListener("input", (e) => e.target.matches(".chat-compose textarea") && fitComposer(e.target));
+// With a keyboard (computer) Invio sends and Maiusc+Invio starts a new line; on a phone Invio is a new line.
+$app.addEventListener("keydown", (e) => {
+  if (e.target.matches(".chat-compose textarea") && e.key === "Enter" && !e.shiftKey && matchMedia("(pointer: fine)").matches) {
+    e.preventDefault();
+    e.target.form.requestSubmit();
+  }
+});
+
+// New messages and games of the open chat arrive at once (Supabase Realtime); the 30 s refresh stays as a fallback.
+function listenToChat(groupId) {
+  if (state.chatChannel?.groupId === groupId) return;
+  stopChat();
+  const channel = sb
+    .channel(`chat-${groupId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `group_id=eq.${groupId}` }, refreshChat)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "results" }, refreshChat)
+    .subscribe();
+  state.chatChannel = { groupId, channel };
+}
+
+function stopChat() {
+  if (state.chatChannel) sb.removeChannel(state.chatChannel.channel);
+  state.chatChannel = null;
 }
 
 // ---------- push notifications on this device ----------
@@ -452,6 +513,7 @@ async function init() {
 async function route() {
   state.staleAt = null;
   let view = currentView();
+  if (view.name !== "chat") stopChat(); // realtime only while a chat is open
   if (view.name === "help" || view.name === "settings") {
     // Usable without an account; the menu uses the groups the game page remembered.
     if (state.session && !state.groups.length) {
@@ -1997,7 +2059,7 @@ const actions = {
   },
 };
 
-const forms = { login: submitLogin, code: submitCode, name: submitName, "rename-me": submitNewName, create: submitCreate };
+const forms = { chat: sendChat, login: submitLogin, code: submitCode, name: submitName, "rename-me": submitNewName, create: submitCreate };
 
 $app.addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");

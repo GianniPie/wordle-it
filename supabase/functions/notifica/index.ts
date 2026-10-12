@@ -12,14 +12,17 @@ const appServer = await webpush.ApplicationServer.new({
 
 Deno.serve(async (req) => {
   if (req.headers.get("x-parle-secret") !== Deno.env.get("NOTIFY_SECRET")) return new Response("forbidden", { status: 403 });
-  const { user_id, day, urgency } = await req.json();
+  const { user_id, day, message_id, urgency } = await req.json();
   // Normally high; "normal" only for a test sent by hand from the database.
   const level = urgency === "normal" ? webpush.Urgency.Normal : webpush.Urgency.High;
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
-  const { data, error } = await sb.rpc("notification_payload", { p_user: user_id, p_day: day });
-  if (error || !data) return Response.json({ error: error?.message || "no result" }, { status: 500 });
+  // A written message in a group chat, or a game just played.
+  const { data, error } = message_id
+    ? await sb.rpc("message_payload", { p_id: message_id })
+    : await sb.rpc("notification_payload", { p_user: user_id, p_day: day });
+  if (error || !data) return Response.json({ error: error?.message || "nothing to send" }, { status: 500 });
 
   let sent = 0, gone = 0, failed = 0;
   for (const r of data.recipients as { endpoint: string; keys: { p256dh: string; auth: string }; site: string; group: string }[]) {
@@ -27,7 +30,8 @@ Deno.serve(async (req) => {
       title: data.title,
       body: data.body,
       url: `${r.site.replace(/\/$/, "")}/classifica/?chat=${r.group}`,
-      tag: `parle-${user_id}-${day}`,
+      // Messages of a group share one notification that is updated (like a messaging app); each game has its own.
+      tag: message_id ? `parle-chat-${r.group}` : `parle-${user_id}-${day}`,
     });
     try {
       await appServer.subscribe({ endpoint: r.endpoint, keys: r.keys }).pushTextMessage(message, {
