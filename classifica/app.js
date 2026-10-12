@@ -268,11 +268,15 @@ function drawChat(group, feed) {
     const mine = m.user === me;
     // History imported from the sheet: no words, so no grid and no real time.
     const time = m.grid ? CHAT_TIME.format(new Date(m.at)) : "";
-    parts.push(`<div class="bubble${mine ? " mine" : ""}">
-        ${mine ? "" : `<div class="who" style="color:${colorOf(m.user)}">${esc(m.name)}</div>`}
-        <div class="text">Par🇮🇹le n°${m.day} ${m.won ? m.n : "X"}/6</div>
-        ${m.grid ? `<div class="grid">${esc(m.grid)}</div>` : ""}
-        ${time ? `<div class="time">${time}</div>` : ""}
+    // Like a messaging app: the others with their avatar on the left, a tail from each bubble.
+    parts.push(`<div class="msg${mine ? " mine" : ""}">
+        ${mine ? "" : avatarHtml({ display_name: m.name, avatar_url: m.avatar }, "avatar chat-avatar")}
+        <div class="bubble${mine ? " mine" : ""}">
+          ${mine ? "" : `<div class="who" style="color:${colorOf(m.user)}">${esc(m.name)}</div>`}
+          <div class="text">Par🇮🇹le n°${m.day} ${m.won ? m.n : "X"}/6</div>
+          ${m.grid ? `<div class="grid">${esc(m.grid)}</div>` : ""}
+          ${time ? `<div class="time">${time}</div>` : ""}
+        </div>
       </div>`);
   }
   const main = document.querySelector("main");
