@@ -924,46 +924,61 @@ details.explain p { margin: 4px 0 0; }
 /* Chat: one bubble per game, like the result shared in a messaging app */
 .chat-group-name { margin: -8px 0 12px; text-align: center; font-weight: 600; color: var(--color-correct); }
 .chat { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; }
+/* Chat colours taken from WhatsApp: light theme from the app, dark theme adapted the same way */
+:root {
+  --chat-bg: #efeae2;
+  --chat-bubble: #ffffff;
+  --chat-mine: #d9fdd3;
+  --chat-chip: #ffffff;
+  --chat-text: #111b21;
+  --chat-time: #667781;
+}
+.nightmode {
+  --chat-bg: #0b141a;
+  --chat-bubble: #202c33;
+  --chat-mine: #005c4b;
+  --chat-chip: #182229;
+  --chat-text: #e9edef;
+  --chat-time: #8696a0;
+}
+main:has(> .chat-page) { background: var(--chat-bg); }
 .chat-day { text-align: center; margin: 10px 0 4px; }
 .chat-day span {
   display: inline-block;
-  padding: 3px 10px;
+  padding: 4px 12px;
   font-size: 12px;
-  color: var(--color-tone-2);
-  background: var(--color-tone-6);
+  font-weight: 600;
+  color: var(--chat-text);
+  background: var(--chat-chip);
   border-radius: 8px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
-.msg { display: flex; align-items: flex-start; gap: 8px; }
+/* The others with their avatar at the bottom left, the tail of the bubble pointing at it */
+.msg { display: flex; align-items: flex-end; gap: 8px; }
 .msg.mine { justify-content: flex-end; }
-.msg .chat-avatar { width: 32px; height: 32px; font-size: 15px; margin-top: 1px; }
+.msg .chat-avatar { width: 34px; height: 34px; font-size: 15px; margin-bottom: 1px; }
 .bubble {
   position: relative;
   max-width: 78%;
   padding: 7px 10px 5px;
-  background: var(--color-tone-7);
-  border-radius: 0 12px 12px 12px;
+  color: var(--chat-text);
+  background: var(--chat-bubble);
+  border-radius: 12px 12px 12px 0;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
 }
-/* The tail: a small triangle in the bubble's colour, out of its top corner towards the sender */
 .bubble::before {
   content: "";
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: -8px;
   width: 8px;
   height: 13px;
   background: inherit;
-  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
-.bubble.mine {
-  background: color-mix(in srgb, var(--color-correct) 28%, var(--color-tone-7));
-  border-radius: 12px 0 12px 12px;
-}
-.bubble.mine::before { left: auto; right: -8px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.bubble.mine { background: var(--chat-mine); border-radius: 12px 12px 0 12px; }
+.bubble.mine::before { left: auto; right: -8px; clip-path: polygon(0 0, 100% 100%, 0 100%); }
 .bubble .who { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
 .bubble .text { font-size: 16px; }
 .bubble .grid { margin-top: 6px; font-size: 18px; line-height: 1.15; white-space: pre; letter-spacing: 1px; }
-.bubble .time { margin-top: 2px; text-align: right; font-size: 11px; color: var(--color-tone-2); }
-
-/* Chat background in contrast with the bubbles, like a messaging app */
-main:has(> .chat-page) { background: color-mix(in srgb, var(--color-tone-1) 9%, var(--color-tone-7)); }
+.bubble .time { margin-top: 2px; text-align: right; font-size: 11px; color: var(--chat-time); }
