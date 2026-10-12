@@ -163,46 +163,64 @@ const SUPABASE_URL = "https://nxybifpygctncflcwbfa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_-LLCVKGqP3hRaxXyrNoq5w_YUWu_QZs";
 
 // Fetched once per day and kept on the device, so the end-of-game dialog shows it at once.
-const definitions = {};
-const DEFINITION_VERSION = 3;
-// The copy kept on the device is encoded, so today's word is not readable at a glance in the browser's storage.
+const DEFINITION_VERSION = 4;
+// The definitions kept on the device (today and the next days, for days spent offline), encoded so the
+// words are not readable at a glance in the browser's storage: { v, days: { day: definition } }.
 const keepEncoded = (value) => btoa(unescape(encodeURIComponent(JSON.stringify(value))));
 const readEncoded = (text) => JSON.parse(decodeURIComponent(escape(atob(text))));
+const localDay = () => {
+  const d = new Date();
+  return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
+};
 
-function loadDefinition(day) {
-  if (definitions[day]) return definitions[day];
+function keptDefinitions() {
   try {
-    const kept = readEncoded(read("parle-definition") || "bnVsbA=="); // "null"
+    const kept = readEncoded(read("parle-definitions") || "bnVsbA=="); // "null"
     // A copy kept by an older version of the app (v changes with what the server sends) is asked again.
-    if (kept?.day === day && kept.v === DEFINITION_VERSION && kept.data) return (definitions[day] = Promise.resolve(kept.data));
+    if (kept?.v === DEFINITION_VERSION && kept.days) return kept.days;
   } catch {}
-  // Definitions are stored encrypted: the server gives back the one of the day, decrypted.
-  definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/rpc/definition`, {
-    method: "POST",
-    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-    body: JSON.stringify({ p_day: day }),
-  })
-    .then((res) => (res.ok ? res.json() : null))
-    .then((data) => {
-      if (data) {
-        try {
-          localStorage.setItem("parle-definition", keepEncoded({ day, v: DEFINITION_VERSION, data }));
-        } catch {}
-      } else delete definitions[day]; // not ready yet: ask again next time
-      return data || null;
-    })
-    .catch(() => {
-      delete definitions[day];
-      return null;
-    });
-  return definitions[day];
+  return {};
 }
 
-// Ask for today's definition as soon as the game opens: it stays hidden until the game is over
-// (today's word is already on the device anyway), and it is there even without network at the end.
+// Today's definition and the next 3 days', in one request (they stay hidden until each game is over),
+// kept on the device together with the ones already there; days before yesterday are dropped.
+let ahead = null;
+function fetchAhead() {
+  if (ahead) return ahead;
+  const from = localDay();
+  ahead = fetch(`${SUPABASE_URL}/rest/v1/rpc/definitions_ahead`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_from: from }),
+  })
+    .then((res) => (res.ok ? res.json() : {}))
+    .then((fresh) => {
+      const days = { ...keptDefinitions(), ...fresh };
+      for (const d of Object.keys(days)) if (+d < from - 1) delete days[d];
+      try {
+        localStorage.setItem("parle-definitions", keepEncoded({ v: DEFINITION_VERSION, days }));
+        localStorage.removeItem("parle-definition"); // the single copy kept by the previous version
+      } catch {}
+      return days;
+    })
+    .catch(() => {
+      ahead = null; // no network: try again next time
+      return keptDefinitions();
+    });
+  return ahead;
+}
+
+async function loadDefinition(day) {
+  const kept = keptDefinitions()[day];
+  if (kept) return kept;
+  const days = await fetchAhead();
+  if (!days[day]) ahead = null; // not ready yet on the server: ask again next time
+  return days[day] || null;
+}
+
+// Asked as soon as the game opens, so the definitions are there at the end even without network.
 function prefetchDefinition() {
-  const d = new Date();
-  loadDefinition(Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5));
+  fetchAhead();
 }
 
 async function showDefinition(el, day, word) {
