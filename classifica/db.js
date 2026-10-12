@@ -33,6 +33,31 @@ export function points(result) {
   return result.won ? result.num_guesses : 7;
 }
 
+// Which account played each game on this device ({ day: user id, or null when played without an account}),
+// so that switching account on the same device never sends someone else's game for the new account.
+export function gameOwner(day) {
+  try {
+    return JSON.parse(localStorage.getItem("parle-owners") || "{}")[day];
+  } catch {
+    return undefined;
+  }
+}
+
+export function setGameOwner(day, uid) {
+  try {
+    const owners = JSON.parse(localStorage.getItem("parle-owners") || "{}");
+    owners[day] = uid;
+    for (const d of Object.keys(owners)) if (+d < day - 10) delete owners[d];
+    localStorage.setItem("parle-owners", JSON.stringify(owners));
+  } catch {}
+}
+
+// A game can be sent for this account unless another account played it here.
+function mine(day, uid) {
+  const owner = gameOwner(day);
+  return !owner || owner === uid;
+}
+
 // Sends the games queued by the game when they ended ("parle-pending"), oldest first. A game leaves the queue
 // only when the server has it, or when it can never be accepted (too old, not a valid game); otherwise it is
 // tried again at the next opening or when the network comes back.
@@ -49,6 +74,7 @@ export function flushPending() {
       return 0;
     }
     for (const item of [...queue].sort((a, b) => a.day - b.day)) {
+      if (!mine(item.day, session.user.id)) continue; // another account's game: it stays for that account
       const playMs = item.playMs > 0 ? Math.round(item.playMs) : null;
       const { error } = await sb.rpc("submit_result", { p_day: item.day, p_guesses: item.guesses, p_play_ms: playMs });
       const final = !error || /not a recent puzzle|invalid guesses|incomplete game/.test(error.message);
@@ -56,7 +82,10 @@ export function flushPending() {
       try {
         const left = JSON.parse(localStorage.getItem("parle-pending") || "[]").filter((q) => q.day !== item.day);
         localStorage.setItem("parle-pending", JSON.stringify(left));
-        if (!error) localStorage.setItem("parle-synced", `${session.user.id}:${item.day}`);
+        if (!error) {
+          localStorage.setItem("parle-synced", `${session.user.id}:${item.day}`);
+          setGameOwner(item.day, session.user.id);
+        }
       } catch {}
       if (!error) sent += 1;
     }
@@ -80,6 +109,7 @@ export async function syncToday() {
   if (day !== dayNumber(new Date())) return null;
   const mark = `${session.user.id}:${day}`;
   if (localStorage.getItem("parle-synced") === mark) return null;
+  if (!mine(day, session.user.id)) return null; // played here with another account
   const guesses = (state.boardState || []).filter(Boolean);
   const playMs = state.playMs > 0 ? Math.round(state.playMs) : null;
   const { data, error } = await sb.rpc("submit_result", { p_day: day, p_guesses: guesses, p_play_ms: playMs });
@@ -88,5 +118,6 @@ export async function syncToday() {
     return null;
   }
   localStorage.setItem("parle-synced", mark);
+  setGameOwner(day, session.user.id);
   return data;
 }

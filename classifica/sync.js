@@ -135,6 +135,7 @@ async function restoreToday(db) {
       })
     );
     localStorage.setItem("parle-synced", `${session.user.id}:${today}`);
+    db.setGameOwner(today, session.user.id);
   } catch {
     return;
   }
@@ -260,6 +261,16 @@ function sync() {
 }
 
 // Send the queue as soon as a game ends or the network comes back.
+// A game just ended: it belongs to the account logged in now (or to nobody yet, without an account).
+window.addEventListener("parle-result-queued", () => {
+  let uid = null;
+  try {
+    uid = JSON.parse(read(SESSION_KEY) || "null")?.user?.id || null;
+  } catch {}
+  const now = new Date();
+  const day = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
+  import("./db.js").then((db) => db.setGameOwner(day, uid));
+});
 window.addEventListener("parle-result-queued", sync);
 window.addEventListener("online", sync);
 
