@@ -28,7 +28,10 @@ Deno.serve(async (req) => {
       tag: `parle-${user_id}-${day}`,
     });
     try {
-      await appServer.subscribe({ endpoint: r.endpoint, keys: r.keys }).pushTextMessage(message, { ttl: 24 * 3600 });
+      await appServer.subscribe({ endpoint: r.endpoint, keys: r.keys }).pushTextMessage(message, {
+        ttl: 24 * 3600,
+        urgency: webpush.Urgency.High, // delivered at once, also with the phone locked (not held until it wakes up)
+      });
       sent++;
     } catch (e) {
       // The device unsubscribed or the app was removed: forget it.
