@@ -923,9 +923,6 @@ details.explain p { margin: 4px 0 0; }
 
 /* Chat: one bubble per game, like the result shared in a messaging app */
 .chat-group-name { margin: -8px 0 12px; text-align: center; font-weight: 600; color: var(--color-correct); }
-.chat-push { margin-bottom: 12px; }
-.chat-push-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-button.tiny-secondary { height: 30px; padding: 0 12px; font-size: 13px; border-radius: 8px; }
 .chat { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; }
 .chat-day { text-align: center; margin: 10px 0 4px; }
 .chat-day span {

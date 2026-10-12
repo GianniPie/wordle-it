@@ -212,9 +212,7 @@ async function renderChat() {
         .map((g) => `<option value="${esc(g.id)}"${g.id === group.id ? " selected" : ""}>${esc(g.name)}</option>`).join("")}</select></div>`
     : `<p class="chat-group-name">${esc(group.name)}</p>`;
   renderShell(`<div class="chat-page"><h1 class="page-title">Chat</h1>${picker}
-    <div class="card chat-push" id="chat-push"></div>
     <div class="chat" id="chat"><p class="muted center">Caricamento...</p></div></div>`);
-  renderPushCard();
   let feed;
   try {
     feed = await keepFast(`feed-${group.id}`, async () => must(await sb.rpc("group_feed", { p_group: group.id, p_days: 30 })), (fresh) => {
@@ -292,24 +290,24 @@ async function pushSubscription() {
   return reg.pushManager.getSubscription();
 }
 
+// Impostazioni: notifications of the group chat on this device (Disattive / Attive).
 async function renderPushCard() {
-  const card = document.getElementById("chat-push");
-  if (!card) return;
+  const box = document.getElementById("push-setting");
+  if (!box) return;
+  const head = (description) => `<span class="text"><span class="title">Notifiche della chat</span><span class="description">${description}</span></span>`;
   if (!pushSupported()) {
-    card.innerHTML = `<p class="card-text muted small">Le notifiche non sono disponibili in questo browser. Su iPhone funzionano con l'app installata sulla schermata Home.</p>`;
+    box.innerHTML = head("Non disponibili in questo browser. Su iPhone funzionano con l'app installata sulla schermata Home.");
     return;
   }
   if (Notification.permission === "denied") {
-    card.innerHTML = `<p class="card-text muted small">Le notifiche sono bloccate per questo sito: puoi riattivarle dalle impostazioni del browser.</p>`;
+    box.innerHTML = head("Bloccate per questo sito: puoi riattivarle dalle impostazioni del browser.");
     return;
   }
-  const sub = await pushSubscription().catch(() => null);
-  card.innerHTML = sub
-    ? `<div class="chat-push-row"><span class="small">🔔 Notifiche attive su questo dispositivo</span>
-         <button class="secondary tiny-secondary" data-action="push-off">Disattiva</button></div>`
-    : `<h2 class="card-title">Notifiche</h2>
-       <p class="card-text muted small">Ricevi un avviso quando qualcuno del gruppo ha giocato.</p>
-       <div class="card-actions"><button class="primary" data-action="push-on">Attiva notifiche</button></div>`;
+  const on = !!(await pushSubscription().catch(() => null));
+  if (!document.getElementById("push-setting")) return;
+  const choice = (action, label, checked) => `<button role="radio" aria-checked="${checked}" data-action="${action}">${label}</button>`;
+  box.innerHTML = `${head("Un avviso su questo dispositivo quando qualcuno dei tuoi gruppi ha giocato")}
+    <div class="segmented" role="radiogroup" aria-label="Notifiche della chat">${choice("push-off", "Disattive", !on)}${choice("push-on", "Attive", on)}</div>`;
 }
 
 function keyBytes(base64url) {
@@ -654,6 +652,7 @@ function renderSettings() {
       ${row("Il gioco si fa duro", "Ogni lettera nota deve essere usata nei tentativi successivi", onOff("hard-mode", !!gs.hardMode))}
       ${row("Aiuto lettere verdi", "Dalla seconda riga: le lettere già al posto giusto scritte da sole o suggerite in trasparenza",
         choice("hints", "off", "Off", hints === "off") + choice("hints", "auto", "Autocompila", hints === "auto") + choice("hints", "ghost", "Suggerimento", hints === "ghost"))}
+      ${state.session ? `<div class="setting stacked" id="push-setting"></div>` : ""}
       ${row("Tema", '"Sistema" segue le impostazioni del dispositivo',
         choice("theme", "light", "Chiaro", mode === "light") + choice("theme", "dark", "Scuro", mode === "dark") + choice("theme", "system", "Sistema", mode === "system"))}
       ${readFlag("colorBlindTheme") ? row("Colori ad alto contrasto", "", onOff("color-blind-theme", true)) : ""}
@@ -675,6 +674,7 @@ function renderSettings() {
     </div>
     <p class="app-version muted small center">${state.version ? `Versione ${esc(state.version)}` : ""}</p>`);
   if (!state.versionLoaded) loadVersion();
+  renderPushCard();
 }
 
 // Version of the code this site is serving: the last successful GitHub Pages deployment of its
