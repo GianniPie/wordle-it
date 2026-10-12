@@ -27,6 +27,9 @@ function renderGroups() {
   const stats = `<a class="item sub" href="classifica/?statistiche">Le mie statistiche</a>`;
   if (!read(SESSION_KEY)) {
     box.innerHTML = stats;
+    const root = box.getRootNode();
+    if (root.getElementById("menu-chat")) root.getElementById("menu-chat").hidden = true;
+    if (root.getElementById("menu-chats")) root.getElementById("menu-chats").innerHTML = "";
     return;
   }
   let groups = [];
@@ -36,8 +39,15 @@ function renderGroups() {
   box.innerHTML =
     stats +
     groups.map((g) => `<a class="item sub" href="classifica/?gruppo=${encodeURIComponent(g.id)}">${esc(g.name)}</a>`).join("") +
-    (groups.length ? `<a class="item sub" href="classifica/?chat">💬 Chat</a>` : "") +
     `<a class="item sub" href="classifica/?nuovo">+ Nuovo gruppo</a>`;
+  // Chat: one entry per group, like Classifiche.
+  const root = box.getRootNode();
+  const chat = root.getElementById("menu-chat");
+  const chats = root.getElementById("menu-chats");
+  if (chat && chats) {
+    chat.hidden = !groups.length;
+    chats.innerHTML = groups.map((g) => `<a class="item sub" href="classifica/?chat=${encodeURIComponent(g.id)}">${esc(g.name)}</a>`).join("");
+  }
 }
 
 function renderAccount() {
