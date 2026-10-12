@@ -210,6 +210,8 @@ async function renderChat() {
   const group = currentGroup();
   store("parle-group", group.id);
   renderMenu();
+  // The address names the group, so the notifications know which chat is on screen.
+  if (new URLSearchParams(location.search).get("chat") !== group.id) history.replaceState(null, "", `?chat=${encodeURIComponent(group.id)}`);
   // Each group has its own chat, chosen from the menu (Chat, then the group's name).
   renderShell(`<div class="chat-page"><div class="chat-head"><h1>${esc(group.name)}</h1><p>Chat del gruppo</p></div>
     <div class="chat" id="chat"><p class="muted center">Caricamento...</p></div>
@@ -226,7 +228,10 @@ async function renderChat() {
   } catch (error) {
     return renderError(error);
   }
-  if (currentView().name === "chat" && state.groupId === group.id) drawChat(group, feed);
+  if (currentView().name === "chat" && state.groupId === group.id) {
+    drawChat(group, feed);
+    markChatRead(group.id);
+  }
 }
 
 // New messages while the page is open: every 30 seconds, when coming back to it, and when a notification arrives.
@@ -237,12 +242,57 @@ async function refreshChat() {
   try {
     const fresh = must(await sb.rpc("group_feed", { p_group: group.id, p_days: 30 }));
     store(`parle-cache-feed-${group.id}`, JSON.stringify({ at: Date.now(), data: fresh }));
-    if (currentView().name === "chat" && state.groupId === group.id) drawChat(group, fresh);
+    if (currentView().name === "chat" && state.groupId === group.id) {
+      drawChat(group, fresh);
+      markChatRead(group.id);
+    }
   } catch {}
 }
 setInterval(refreshChat, 30000);
 document.addEventListener("visibilitychange", refreshChat);
-navigator.serviceWorker?.addEventListener("message", (e) => e.data?.type === "parle-push" && refreshChat());
+navigator.serviceWorker?.addEventListener("message", (e) => {
+  if (e.data?.type !== "parle-push") return;
+  if (currentView().name === "chat" && document.visibilityState === "visible") refreshChat();
+  loadUnread();
+});
+document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && loadUnread());
+
+// ---------- unread counters (menu, app icon) ----------
+
+state.unread = readJSON("parle-unread", {});
+
+function unreadBadge(groupId) {
+  const n = state.unread?.[groupId] || 0;
+  return n ? `<span class="badge" aria-label="${n} non letti">${n > 99 ? "99+" : n}</span>` : "";
+}
+
+function showUnread() {
+  store("parle-unread", JSON.stringify(state.unread)); // the game page's menu shows them too
+  renderMenu();
+  const total = Object.values(state.unread).reduce((a, n) => a + n, 0);
+  try {
+    if (total) navigator.setAppBadge?.(total);
+    else navigator.clearAppBadge?.();
+  } catch {}
+}
+
+async function loadUnread() {
+  if (!state.session) return;
+  try {
+    state.unread = must(await sb.rpc("unread_counts")) || {};
+    if (currentView().name === "chat" && document.visibilityState === "visible" && state.groupId) state.unread[state.groupId] = 0;
+    showUnread();
+  } catch {}
+}
+
+async function markChatRead(groupId) {
+  if (document.visibilityState !== "visible") return;
+  state.unread[groupId] = 0;
+  showUnread();
+  try {
+    await sb.rpc("mark_chat_read", { p_group: groupId });
+  } catch {}
+}
 
 function drawChat(group, feed) {
   const box = document.getElementById("chat");
@@ -538,6 +588,7 @@ async function route() {
   state.staleAt = null;
   let view = currentView();
   if (view.name !== "chat") stopChat(); // realtime only while a chat is open
+  if (state.session) loadUnread(); // unread counters in the menu, on every page
   if (view.name === "help" || view.name === "settings") {
     // Usable without an account; the menu uses the groups the game page remembered.
     if (state.session && !state.groups.length) {
@@ -631,7 +682,7 @@ function renderMenu() {
     ${groups}
     ${state.session && state.groups.length
       ? `<a class="item" data-nav href="?chat"${current(view.name === "chat" && !view.groupId)}>${icon("M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z")}Chat</a>` +
-        state.groups.map((g) => `<a class="item sub" data-nav href="?chat=${encodeURIComponent(g.id)}"${current(view.name === "chat" && g.id === state.groupId)}>${esc(g.name)}</a>`).join("")
+        state.groups.map((g) => `<a class="item sub" data-nav href="?chat=${encodeURIComponent(g.id)}"${current(view.name === "chat" && g.id === state.groupId)}>${esc(g.name)}${unreadBadge(g.id)}</a>`).join("")
       : ""}
     <a class="item" data-nav href="?account"${current(view.name === "account")}>${icon("M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z")}Account</a>
     <a class="item" data-nav href="?come-giocare"${current(view.name === "help")}>${icon("M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z")}Come giocare</a>

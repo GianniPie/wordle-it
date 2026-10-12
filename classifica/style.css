@@ -1041,3 +1041,19 @@ main:has(> .chat-page) { padding-bottom: 0; }
   cursor: pointer;
 }
 .chat-compose .send:disabled { opacity: 0.6; }
+
+/* Unread messages of a chat, in the menu */
+#menu .item .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-correct);
+  border-radius: 10px;
+}

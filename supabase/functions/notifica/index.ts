@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
       title: data.title,
       body: data.body,
       url: `${r.site.replace(/\/$/, "")}/classifica/?chat=${r.group}`,
+      group: r.group, // the app does not show it while that chat is open on screen
       // Messages of a group share one notification that is updated (like a messaging app); each game has its own.
       tag: message_id ? `parle-chat-${r.group}` : `parle-${user_id}-${day}`,
     });

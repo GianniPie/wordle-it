@@ -2,7 +2,7 @@
 // Pages and app files: network first (updates arrive as soon as they are published), the copy when offline.
 // Libraries from the CDNs: the copy first (their addresses don't change), downloaded once.
 // Supabase data is never handled here: the pages keep their own last data.
-const CACHE = "parle-v5";
+const CACHE = "parle-v6";
 const APP_FILES = [
   "./",
   "index.html",
@@ -94,6 +94,10 @@ self.addEventListener("push", (event) => {
   const icon = new URL((scope.includes("/wordle-it-test/") || new URL(scope).hostname.endsWith(".vercel.app")) ? "images/test/parle_logo_192x192.png" : "images/parle_logo_192x192.png", scope).href;
   event.waitUntil(
     (async () => {
+      const open = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const c of open) c.postMessage({ type: "parle-push", group: d.group });
+      // Already looking at that chat: no notification, the chat updates by itself.
+      if (d.group && open.some((c) => c.visibilityState === "visible" && c.url.includes(`chat=${d.group}`))) return;
       await self.registration.showNotification(d.title || "Par🇮🇹le", {
         body: d.body || "",
         icon,
@@ -102,7 +106,6 @@ self.addEventListener("push", (event) => {
         renotify: !!d.tag, // a newer message of the same chat replaces the notification and still alerts
         data: { url: d.url || new URL("classifica/?chat", scope).href },
       });
-      for (const c of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) c.postMessage({ type: "parle-push" });
     })()
   );
 });

@@ -46,7 +46,12 @@ function renderGroups() {
   const chats = root.getElementById("menu-chats");
   if (chat && chats) {
     chat.hidden = !groups.length;
-    chats.innerHTML = groups.map((g) => `<a class="item sub" href="classifica/?chat=${encodeURIComponent(g.id)}">${esc(g.name)}</a>`).join("");
+    let unread = {};
+    try {
+      unread = JSON.parse(read("parle-unread") || "{}");
+    } catch {}
+    const badge = (id) => (unread[id] ? `<span class="badge">${unread[id] > 99 ? "99+" : unread[id]}</span>` : "");
+    chats.innerHTML = groups.map((g) => `<a class="item sub" href="classifica/?chat=${encodeURIComponent(g.id)}">${esc(g.name)}${badge(g.id)}</a>`).join("");
   }
 }
 
@@ -261,6 +266,22 @@ window.parleShowDefinition = showDefinition;
 if (window.parlePendingDefinition) showDefinition(...window.parlePendingDefinition);
 prefetchDefinition();
 
+// Unread chat messages, for the counters in the menu and on the app icon.
+async function refreshUnread(db) {
+  try {
+    const { data, error } = await db.sb.rpc("unread_counts");
+    if (error || !data) return;
+    localStorage.setItem("parle-unread", JSON.stringify(data));
+    renderGroups();
+    const total = Object.values(data).reduce((a, n) => a + n, 0);
+    if (total) navigator.setAppBadge?.(total);
+    else navigator.clearAppBadge?.();
+  } catch {}
+}
+navigator.serviceWorker?.addEventListener("message", (e) => {
+  if (e.data?.type === "parle-push" && read(SESSION_KEY)) import("./db.js").then(refreshUnread);
+});
+
 let pushClaimed = false;
 function sync() {
   rememberTime();
@@ -268,6 +289,7 @@ function sync() {
   import("./db.js").then(async (db) => {
     await db.flushPending();
     await db.syncToday();
+    refreshUnread(db);
     // The device's notifications belong to the account logged in now (also after switching account).
     if (!pushClaimed && "serviceWorker" in navigator && "PushManager" in window && Notification.permission === "granted") {
       pushClaimed = true;
