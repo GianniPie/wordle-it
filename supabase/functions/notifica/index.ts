@@ -12,7 +12,9 @@ const appServer = await webpush.ApplicationServer.new({
 
 Deno.serve(async (req) => {
   if (req.headers.get("x-parle-secret") !== Deno.env.get("NOTIFY_SECRET")) return new Response("forbidden", { status: 403 });
-  const { user_id, day } = await req.json();
+  const { user_id, day, urgency } = await req.json();
+  // Normally high; "normal" only for a test sent by hand from the database.
+  const level = urgency === "normal" ? webpush.Urgency.Normal : webpush.Urgency.High;
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   });
@@ -30,7 +32,7 @@ Deno.serve(async (req) => {
     try {
       await appServer.subscribe({ endpoint: r.endpoint, keys: r.keys }).pushTextMessage(message, {
         ttl: 24 * 3600,
-        urgency: webpush.Urgency.High, // delivered at once, also with the phone locked (not held until it wakes up)
+        urgency: level, // high: delivered at once, also with the phone locked (not held until it wakes up)
       });
       sent++;
     } catch (e) {
