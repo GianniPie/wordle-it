@@ -87,6 +87,14 @@ function evaluate(guess, solution) {
 }
 
 // Today's word already finished on another device: put that game on this device too, then reload the game.
+// Same encoding as the game uses for the word in its saved state.
+function decodeWord(text) {
+  const b = atob(text);
+  let out = "";
+  for (let i = 0; i < b.length; i++) out += String.fromCharCode(b.charCodeAt(i) ^ "parle".charCodeAt(i % 5));
+  return out;
+}
+
 async function restoreToday(db) {
   const { data: { session } } = await db.sb.auth.getSession();
   if (!session) return;
@@ -95,15 +103,16 @@ async function restoreToday(db) {
   try {
     state = JSON.parse(read("gameState") || "null");
   } catch {}
-  // The game has already saved today's word when it started the day.
-  if (!state?.solution) return;
+  // The game has already saved today's word when it started the day (encoded, see wordle-it.js).
+  const solution = state?.solutionEnc ? decodeWord(state.solutionEnc) : state?.solution;
+  if (!solution) return;
   const playedHere = state.lastPlayedTs && db.dayNumber(new Date(state.lastPlayedTs)) === today;
   if (playedHere && ["WIN", "FAIL"].includes(state.gameStatus)) return;
   // The words are stored encrypted: my_result gives back only one's own, in clear.
   const { data, error } = await db.sb.rpc("my_result", { p_day: today });
   const r = data?.[0];
   if (error || !r?.guesses?.length) return;
-  if (r.won && r.guesses[r.guesses.length - 1] !== state.solution) return; // not today's word: leave this device alone
+  if (r.won && r.guesses[r.guesses.length - 1] !== solution) return; // not today's word: leave this device alone
   const mark = `parle-restored-${today}`;
   try {
     if (sessionStorage.getItem(mark)) return; // never reload more than once
@@ -115,7 +124,7 @@ async function restoreToday(db) {
       JSON.stringify({
         ...state,
         boardState: board,
-        evaluations: board.map((g) => (g ? evaluate(g, state.solution) : null)),
+        evaluations: board.map((g) => (g ? evaluate(g, solution) : null)),
         rowIndex: r.guesses.length,
         gameStatus: r.won ? "WIN" : "FAIL",
         lastPlayedTs: now,
@@ -155,22 +164,29 @@ const SUPABASE_KEY = "sb_publishable_-LLCVKGqP3hRaxXyrNoq5w_YUWu_QZs";
 
 // Fetched once per day and kept on the device, so the end-of-game dialog shows it at once.
 const definitions = {};
-const DEFINITION_VERSION = 2;
+const DEFINITION_VERSION = 3;
+// The copy kept on the device is encoded, so today's word is not readable at a glance in the browser's storage.
+const keepEncoded = (value) => btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+const readEncoded = (text) => JSON.parse(decodeURIComponent(escape(atob(text))));
+
 function loadDefinition(day) {
   if (definitions[day]) return definitions[day];
   try {
-    const kept = JSON.parse(read("parle-definition") || "null");
+    const kept = readEncoded(read("parle-definition") || "bnVsbA=="); // "null"
     // A copy kept by an older version of the app (v changes with what the server sends) is asked again.
     if (kept?.day === day && kept.v === DEFINITION_VERSION && kept.data) return (definitions[day] = Promise.resolve(kept.data));
   } catch {}
-  definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/definitions?day=eq.${day}&select=word,lemma,form_of,senses,status,source_url,treccani_url`, {
-    headers: { apikey: SUPABASE_KEY },
+  // Definitions are stored encrypted: the server gives back the one of the day, decrypted.
+  definitions[day] = fetch(`${SUPABASE_URL}/rest/v1/rpc/definition`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_day: day }),
   })
-    .then((res) => (res.ok ? res.json() : []))
-    .then(([data]) => {
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
       if (data) {
         try {
-          localStorage.setItem("parle-definition", JSON.stringify({ day, v: DEFINITION_VERSION, data }));
+          localStorage.setItem("parle-definition", keepEncoded({ day, v: DEFINITION_VERSION, data }));
         } catch {}
       } else delete definitions[day]; // not ready yet: ask again next time
       return data || null;

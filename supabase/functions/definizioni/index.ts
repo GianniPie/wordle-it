@@ -147,7 +147,8 @@ Deno.serve(async (req) => {
   for (const { day, word } of todo as { day: number; word: string }[]) {
     try {
       const def = await prepare(word);
-      const { error: e } = await sb.from("definitions").upsert({ day, word, ...def, fetched_at: new Date().toISOString() });
+      // Saved encrypted by the database (save_definition).
+      const { error: e } = await sb.rpc("save_definition", { p_day: day, p_data: { word, ...def } });
       if (e) throw new Error(e.message);
       saved.push({ day, word, status: def.status });
     } catch (e) {
