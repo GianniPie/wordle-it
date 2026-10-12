@@ -7,13 +7,18 @@
     <meta name="theme-color" content="#538d4e" />
     <link href="../images/parle_logo.svg" rel="icon" type="image/svg+xml" />
     <link href="../images/parle_logo_32x32.png" rel="icon" sizes="32x32" />
-    <link rel="manifest" href="../manifest.json" />
+    <script>
+      // One manifest per site, chosen before the browser reads it: the test site (wordle-it-test) is a separate app
+      // named and drawn "TEST", so both versions can be installed side by side.
+      window.parleTestSite = /^\/wordle-it-test\//.test(location.pathname);
+      document.write('<link rel="manifest" href="' + (window.parleTestSite ? "../manifest-test.json" : "../manifest.json") + '" />');
+    </script>
     <link href="../images/parle_logo_192x192.png" rel="apple-touch-icon" />
     <script>
       // On the test site (wordle-it-test) the app is named and drawn "TEST", so both versions can be installed side by side.
       if (/^\/wordle-it-test\//.test(location.pathname)) {
-        document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"], link[rel="manifest"]').forEach(function (l) {
-          l.href = l.getAttribute("href").replace("images/", "images/test/").replace("manifest.json", "manifest-test.json");
+        document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]').forEach(function (l) {
+          l.href = l.getAttribute("href").replace("images/", "images/test/");
         });
         document.title = "TEST · " + document.title;
       }
