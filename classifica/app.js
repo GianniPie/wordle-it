@@ -211,7 +211,7 @@ async function renderChat() {
   store("parle-group", group.id);
   renderMenu();
   // Each group has its own chat, chosen from the menu (Chat, then the group's name).
-  renderShell(`<div class="chat-page"><h1 class="page-title">${esc(group.name)}</h1><p class="chat-group-name">Chat del gruppo</p>
+  renderShell(`<div class="chat-page"><div class="chat-head"><h1>${esc(group.name)}</h1><p>Chat del gruppo</p></div>
     <div class="chat" id="chat"><p class="muted center">Caricamento...</p></div></div>`);
   let feed;
   try {
