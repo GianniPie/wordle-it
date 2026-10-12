@@ -702,7 +702,8 @@ async function loadVersion() {
         if (st[0]?.state === "success") return show(d.sha, st[0].created_at);
       }
     } else {
-      const res = await fetch(`${api}wordle-it/commits/leaderboard`);
+      // The test site on Vercel serves wordle-it-test; a local server, the working branch.
+      const res = await fetch(location.hostname.endsWith(".vercel.app") ? `${api}wordle-it-test/commits/master` : `${api}wordle-it/commits/leaderboard`);
       if (!res.ok) return;
       const c = await res.json();
       show(c.sha, c.commit.committer.date);

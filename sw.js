@@ -91,7 +91,7 @@ self.addEventListener("push", (event) => {
     d = { body: event.data ? event.data.text() : "" };
   }
   const scope = self.registration.scope;
-  const icon = new URL(scope.includes("/wordle-it-test/") ? "images/test/parle_logo_192x192.png" : "images/parle_logo_192x192.png", scope).href;
+  const icon = new URL((scope.includes("/wordle-it-test/") || new URL(scope).hostname.endsWith(".vercel.app")) ? "images/test/parle_logo_192x192.png" : "images/parle_logo_192x192.png", scope).href;
   event.waitUntil(
     (async () => {
       await self.registration.showNotification(d.title || "Par🇮🇹le", {
