@@ -380,6 +380,28 @@ function keyBytes(base64url) {
   return Uint8Array.from(b, (c) => c.charCodeAt(0));
 }
 
+// The device's notification subscription follows the account logged in on it: when another account
+// enters on the same device, the notifications become that account's (not the previous one's).
+async function claimPush() {
+  if (!state.session || !pushSupported() || Notification.permission !== "granted") return;
+  try {
+    const sub = await pushSubscription();
+    if (sub) await sb.rpc("save_push_subscription", { p_subscription: sub.toJSON(), p_site: SITE });
+  } catch {}
+}
+
+// On logout: the subscription is removed, so the device gets no more notifications for that account.
+async function releasePush() {
+  if (!pushSupported()) return;
+  try {
+    const sub = await pushSubscription();
+    if (sub) {
+      await sb.rpc("delete_push_subscription", { p_endpoint: sub.endpoint });
+      await sub.unsubscribe();
+    }
+  } catch {}
+}
+
 async function pushOn() {
   try {
     if ((await Notification.requestPermission()) !== "granted") return renderPushCard();
@@ -494,9 +516,11 @@ async function init() {
   if (error) console.warn(error);
   state.session = data.session;
   if (!state.session && error && isOffline(error)) state.session = readJSON("sb-nxybifpygctncflcwbfa-auth-token", null);
+  claimPush();
   sb.auth.onAuthStateChange((event, session) => {
     const wasIn = !!state.session;
     state.session = session;
+    if (!wasIn && session) claimPush();
     if (event === "SIGNED_OUT" || (!wasIn && session)) route();
   });
   // Remove the invite code from the address bar.
@@ -1933,6 +1957,7 @@ const actions = {
       ok: "Esci",
     });
     if (!ok) return;
+    await releasePush(); // this device stops receiving the account's notifications
     // Only this device: other phones and computers stay logged in.
     await sb.auth.signOut({ scope: "local" });
     state.data = {};

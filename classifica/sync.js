@@ -261,12 +261,21 @@ window.parleShowDefinition = showDefinition;
 if (window.parlePendingDefinition) showDefinition(...window.parlePendingDefinition);
 prefetchDefinition();
 
+let pushClaimed = false;
 function sync() {
   rememberTime();
   if (!read(SESSION_KEY)) return;
   import("./db.js").then(async (db) => {
     await db.flushPending();
     await db.syncToday();
+    // The device's notifications belong to the account logged in now (also after switching account).
+    if (!pushClaimed && "serviceWorker" in navigator && "PushManager" in window && Notification.permission === "granted") {
+      pushClaimed = true;
+      try {
+        const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+        if (sub) await db.sb.rpc("save_push_subscription", { p_subscription: sub.toJSON(), p_site: location.origin + location.pathname.replace(/[^/]*$/, "") });
+      } catch {}
+    }
   });
 }
 
