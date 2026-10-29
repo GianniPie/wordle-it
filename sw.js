@@ -1,8 +1,9 @@
 // Keeps a copy of the app on the device so it opens and can be played without network.
-// Pages and app files: network first (updates arrive as soon as they are published), the copy when offline.
+// Pages and app files: the copy first (the app opens at once even with a weak network), updated in the
+// background, so a new version arrives at the opening after it is published.
 // Libraries from the CDNs: the copy first (their addresses don't change), downloaded once.
 // Supabase data is never handled here: the pages keep their own last data.
-const CACHE = "parle-v6";
+const CACHE = "parle-v7";
 const APP_FILES = [
   "./",
   "index.html",
@@ -70,15 +71,20 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin !== self.location.origin) return; // Supabase, Wiktionary, analytics: not cached
 
-  event.respondWith(
-    fetch(request)
-      .then((res) => {
-        if (res.ok) caches.open(CACHE).then((c) => c.put(request, res.clone()));
-        return res;
-      })
-      // Offline: the copy (pages like classifica/?account use the copy of classifica/).
-      .catch(() => caches.match(request, { ignoreSearch: request.mode === "navigate" }))
-  );
+  // The copy on the device first, so the app opens at once even with a weak network; the new version is
+  // downloaded in the background and used from the next opening. Pages like classifica/?account use the
+  // copy of classifica/. Without a copy yet: the network.
+  // A page is kept once, without its ?…, so every address of it opens the latest copy.
+  const key = request.mode === "navigate" ? url.origin + url.pathname : request;
+  const update = fetch(request).then((res) => {
+    if (res.ok && !res.redirected) {
+      const copy = res.clone();
+      event.waitUntil(caches.open(CACHE).then((c) => c.put(key, copy)));
+    }
+    return res;
+  });
+  event.waitUntil(update.catch(() => {}));
+  event.respondWith(caches.match(key).then((hit) => hit || update));
 });
 
 // Push notifications (a game of someone in the group): shown even with the app closed; the open pages
