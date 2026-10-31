@@ -1243,11 +1243,9 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   // Letters can be written in any order: a tile left empty in the middle is a " " in the row.
                   if (this.gameStatus === Qa && this.canInput && null == this.selectedTile && this.boardState[this.rowIndex].indexOf(" ") >= 0) return this.selectTile(this.boardState[this.rowIndex].indexOf(" ")), void this.addLetter(e);
                   if (this.gameStatus === Qa && this.canInput && null != this.selectedTile) {
-                      for (var i = this.selectedTile, a = this.boardState[this.rowIndex].padEnd(i, " "), s = this.$board.querySelectorAll("game-row")[this.rowIndex], n = null, q = 1; q < 5; q++)
-                          if (" " === ((a = a.slice(0, i) + e + a.slice(i + 1))[(i + q) % 5] || " ")) {
-                              n = (i + q) % 5;
-                              break
-                          } return this.boardState[this.rowIndex] = a, this.tileIndex = a.length, s.setAttribute("letters", a), s.removeAttribute("invalid"), void this.selectTile(n)
+                      // Then on to the next tile, full or empty; from the last one, to the first empty tile (none: no selection).
+                      var i = this.selectedTile, a = this.boardState[this.rowIndex].padEnd(i, " "), s = this.$board.querySelectorAll("game-row")[this.rowIndex], n;
+                      return a = a.slice(0, i) + e + a.slice(i + 1), n = i < 4 ? i + 1 : a.padEnd(5, " ").indexOf(" "), this.boardState[this.rowIndex] = a, this.tileIndex = a.length, s.setAttribute("letters", a), s.removeAttribute("invalid"), void this.selectTile(n >= 0 ? n : null)
                   }
                   this.gameStatus === Qa && (this.canInput && (this.tileIndex >= 5 || (this.boardState[this.rowIndex] += e, this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex]), this.tileIndex += 1, this.autoFill())))
               }
