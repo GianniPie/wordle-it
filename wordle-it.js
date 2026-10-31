@@ -312,7 +312,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               var e = this;
               this.$row && this.$tiles.forEach((function(a, s) {
                   var t = e._letters[s];
-                  t ? a.setAttribute("letter", t) : a.removeAttribute("letter"), s === e._selected ? a.setAttribute("selected", "") : a.removeAttribute("selected");
+                  " " === t && (t = void 0), t ? a.setAttribute("letter", t) : a.removeAttribute("letter"), s === e._selected ? a.setAttribute("selected", "") : a.removeAttribute("selected");
                   // Green letters already found: shown faded in empty tiles ("ghost") or marked when written by the game ("auto").
                   var h = (e.getAttribute("hints") || "")[s],
                       m = e.getAttribute("hint-mode");
@@ -1240,35 +1240,47 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                   this.gameStatus === Qa && this.canInput && !za().startedAt && ja({
                       startedAt: Date.now()
                   });
+                  // Letters can be written in any order: a tile left empty in the middle is a " " in the row.
+                  if (this.gameStatus === Qa && this.canInput && null == this.selectedTile && this.boardState[this.rowIndex].indexOf(" ") >= 0) return this.selectTile(this.boardState[this.rowIndex].indexOf(" ")), void this.addLetter(e);
                   if (this.gameStatus === Qa && this.canInput && null != this.selectedTile) {
-                      var a = this.boardState[this.rowIndex],
-                          s = this.$board.querySelectorAll("game-row")[this.rowIndex];
-                      return this.boardState[this.rowIndex] = a.slice(0, this.selectedTile) + e + a.slice(this.selectedTile + 1), s.setAttribute("letters", this.boardState[this.rowIndex]), s.removeAttribute("invalid"), void this.selectTile(this.selectedTile + 1 < this.tileIndex ? this.selectedTile + 1 : null)
+                      for (var i = this.selectedTile, a = this.boardState[this.rowIndex].padEnd(i, " "), s = this.$board.querySelectorAll("game-row")[this.rowIndex], n = null, q = 1; q < 5; q++)
+                          if (" " === ((a = a.slice(0, i) + e + a.slice(i + 1))[(i + q) % 5] || " ")) {
+                              n = (i + q) % 5;
+                              break
+                          } return this.boardState[this.rowIndex] = a, this.tileIndex = a.length, s.setAttribute("letters", a), s.removeAttribute("invalid"), void this.selectTile(n)
                   }
                   this.gameStatus === Qa && (this.canInput && (this.tileIndex >= 5 || (this.boardState[this.rowIndex] += e, this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("letters", this.boardState[this.rowIndex]), this.tileIndex += 1, this.autoFill())))
               }
           }, {
               key: "removeLetter",
               value: function() {
-                  if (null != this.selectedTile) return void this.selectTile(null);
+                  if (null != this.selectedTile) {
+                      var c = this.boardState[this.rowIndex];
+                      if (this.gameStatus === Qa && this.canInput && c[this.selectedTile] && " " !== c[this.selectedTile]) {
+                          c = (c.slice(0, this.selectedTile) + " " + c.slice(this.selectedTile + 1)).replace(/ +$/, ""), this.boardState[this.rowIndex] = c, this.tileIndex = c.length;
+                          var r = this.$board.querySelectorAll("game-row")[this.rowIndex];
+                          return c ? r.setAttribute("letters", c) : r.removeAttribute("letters"), void r.removeAttribute("invalid")
+                      }
+                      return void this.selectTile(null)
+                  }
                   if ("auto" === this.hintMode() && this.gameStatus === Qa && this.canInput && this.rowIndex > 0) {
                       for (var k = this.knownLetters(), w = this.boardState[this.rowIndex], n = w.length; n > 0 && k[n - 1] && w[n - 1] === k[n - 1];) n--;
                       if (0 === n) return;
-                      this.boardState[this.rowIndex] = w.slice(0, n - 1), this.tileIndex = n - 1;
+                      this.boardState[this.rowIndex] = w.slice(0, n - 1).replace(/ +$/, ""), this.tileIndex = this.boardState[this.rowIndex].length;
                       var g = this.$board.querySelectorAll("game-row")[this.rowIndex];
                       return this.boardState[this.rowIndex] ? g.setAttribute("letters", this.boardState[this.rowIndex]) : g.removeAttribute("letters"), g.removeAttribute("invalid"), void this.autoFill()
                   }
                   if (this.gameStatus === Qa && this.canInput && !(this.tileIndex <= 0)) {
-                      this.boardState[this.rowIndex] = this.boardState[this.rowIndex].slice(0, this.boardState[this.rowIndex].length - 1);
+                      this.boardState[this.rowIndex] = this.boardState[this.rowIndex].slice(0, this.boardState[this.rowIndex].length - 1).replace(/ +$/, "");
                       var e = this.$board.querySelectorAll("game-row")[this.rowIndex];
-                      this.boardState[this.rowIndex] ? e.setAttribute("letters", this.boardState[this.rowIndex]) : e.removeAttribute("letters"), e.removeAttribute("invalid"), this.tileIndex -= 1
+                      this.boardState[this.rowIndex] ? e.setAttribute("letters", this.boardState[this.rowIndex]) : e.removeAttribute("letters"), e.removeAttribute("invalid"), this.tileIndex = this.boardState[this.rowIndex].length
                   }
               }
           }, {
               key: "submitGuess",
               value: function() {
                   if (this.gameStatus === Qa && this.canInput) {
-                      if (this.selectTile(null), 5 !== this.tileIndex) return this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("invalid", ""), void this.addToast("Non abbastanza lettere");
+                      if (this.selectTile(null), 5 !== this.tileIndex || this.boardState[this.rowIndex].indexOf(" ") >= 0) return this.$board.querySelectorAll("game-row")[this.rowIndex].setAttribute("invalid", ""), void this.addToast("Non abbastanza lettere");
                       this.evaluateRow()
                   }
               }
@@ -1317,11 +1329,11 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       "←" === s || "Backspace" === s ? e.removeLetter() : "↵" === s || "Enter" === s ? e.submitGuess() : Ga.includes(s.toLowerCase()) && e.addLetter(s.toLowerCase())
                   })), this.$game.addEventListener("game-tile-tap", (function(a) {
                       var s = a.detail.index;
-                      if ("ghost" === e.hintMode() && e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && s === e.tileIndex && null == e.selectedTile) {
+                      if ("ghost" === e.hintMode() && e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && !(e.boardState[e.rowIndex][s] || "").trim() && null == e.selectedTile) {
                           var k = e.knownLetters()[s];
-                          if (k) return void e.addLetter(k)
+                          if (k) return e.selectTile(s), void e.addLetter(k)
                       }
-                      e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && e.selectTile(s < e.tileIndex && e.selectedTile !== s ? s : null)
+                      e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && e.selectTile(e.selectedTile !== s ? s : null)
                   })), this.$game.addEventListener("game-last-tile-revealed-in-row", (function(a) {
                       e.$keyboard.letterEvaluations = e.letterEvaluations, e.rowIndex < 6 && (e.canInput = !0), e.restoringFromLocalStorage || e.applyHints();
                       var s = e.$board.querySelectorAll("game-row")[e.rowIndex - 1];
