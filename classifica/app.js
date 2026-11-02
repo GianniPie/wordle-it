@@ -1718,7 +1718,7 @@ function enableModuleDrag() {
 
 function standingsModule(stats) {
   const me = state.session.user.id;
-  const medal = (s) => (!stats.anyPlayed ? "" : s.rank === 1 ? "🥇" : s.rank === 2 ? "🥈" : s.rank === 3 ? "🥉" : s.rank);
+  const medal = (s) => (!stats.anyPlayed ? "" : s.rank <= 3 ? medalIcon(s.rank, 22) : s.rank);
   const dash = (v) => (v == null ? "-" : v);
   const body = `<div class="scroll-x"><table class="standings">
       <thead><tr>
@@ -1750,7 +1750,33 @@ function standingsModule(stats) {
   return { body };
 }
 
-// How many finished months (the current one excluded) each player ended 1st, 2nd, 3rd or last (🧹), with the
+// Medals and broom drawn here (the emoji look different on every phone): a medal hangs from a green and red
+// ribbon and carries its number; the broom is for the last place.
+const MEDAL_COLORS = {
+  1: ["#f6c945", "#c99418", "#ffe48f", "#7d5a0c"],
+  2: ["#d3dae2", "#929daa", "#f1f4f7", "#4f5a66"],
+  3: ["#dd955e", "#a5602c", "#f3bf93", "#64360f"],
+};
+function medalIcon(place, size = 26) {
+  const [main, dark, light, text] = MEDAL_COLORS[place];
+  return `<svg class="medal-icon" viewBox="0 0 32 32" width="${size}" height="${size}" role="img" aria-label="${place}° posto">
+    <path d="M7 1h6l5 13h-6z" fill="#2f9e55"/><path d="M25 1h-6l-5 13h6z" fill="#d6403a"/>
+    <path d="M13 1h1.6l4.2 11-1.3 2.2z" fill="#fff" opacity=".85"/>
+    <circle cx="16" cy="21.5" r="9.5" fill="${main}" stroke="${dark}" stroke-width="1.5"/>
+    <circle cx="16" cy="21.5" r="6.6" fill="${light}" stroke="${dark}" stroke-width=".8" opacity=".9"/>
+    <text x="16" y="25" text-anchor="middle" font-size="10" font-weight="800" font-family="system-ui,sans-serif" fill="${text}">${place}</text>
+  </svg>`;
+}
+function broomIcon(size = 26) {
+  return `<svg class="medal-icon" viewBox="0 0 32 32" width="${size}" height="${size}" role="img" aria-label="Ultimo posto">
+    <path d="M27.5 2.5 16.5 15" stroke="#8a5a2b" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M13 13.5l6 5.2-4.6 11.6c-3.8-.4-8.2-3.4-11.1-6.6z" fill="#e9bb4c" stroke="#b5832a" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M14.6 18.2 8.4 26.6M16.6 19.6l-5 9.4M12.4 16.8l-6.6 7" stroke="#c4922f" stroke-width=".9" stroke-linecap="round"/>
+    <path d="M12.6 13.2l6.8 5.8" stroke="#d6403a" stroke-width="3.2" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// How many finished months (the current one excluded) each player ended 1st, 2nd, 3rd or last (broom), with the
 // monthly standings of the group. A month counts only for the players who played in it.
 function medalsModule(group, data) {
   const me = state.session.user.id;
@@ -1776,12 +1802,12 @@ function medalsModule(group, data) {
     (a, b) => b.medals[0] - a.medals[0] || b.medals[1] - a.medals[1] || b.medals[2] - a.medals[2] || a.medals[3] - b.medals[3] || a.name.localeCompare(b.name)
   );
   const body = `<div class="scroll-x"><table class="medals">
-      <thead><tr><th></th><th title="Primo posto">🥇</th><th title="Secondo posto">🥈</th><th title="Terzo posto">🥉</th><th title="Ultimo posto">🧹</th></tr></thead>
+      <thead><tr><th></th><th title="Primo posto">${medalIcon(1)}</th><th title="Secondo posto">${medalIcon(2)}</th><th title="Terzo posto">${medalIcon(3)}</th><th title="Ultimo posto">${broomIcon()}</th></tr></thead>
       <tbody>${rows
         .map((r) => `<tr class="${r.id === me ? "me" : ""}"><td class="name">${esc(r.name)}</td>${r.medals.map((n) => `<td>${n}</td>`).join("")}</tr>`)
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">Piazzamenti nella classifica di fine mese, su ${months} ${months === 1 ? "mese concluso" : "mesi conclusi"} (da ${monthLabel(from)} a ${monthLabel(until)}; il mese in corso non conta). La scopa 🧹 è per l'ultimo posto.</p>`;
+    <p class="muted small">Piazzamenti nella classifica di fine mese, su ${months} ${months === 1 ? "mese concluso" : "mesi conclusi"} (da ${monthLabel(from)} a ${monthLabel(until)}; il mese in corso non conta). La scopa è per l'ultimo posto.</p>`;
   return { body };
 }
 
