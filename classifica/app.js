@@ -2023,13 +2023,15 @@ function manageSection(group, data) {
       <h2 class="card-title" style="margin-top:20px">Giocatori</h2>
       <ul class="members">${members}</ul>
       ${
+        // Any member can rename the group; the rest is for the admin.
         isOwner
           ? `<div class="card-actions">
                <button class="secondary" data-action="rename">Rinomina</button>
                <button class="secondary" data-action="new-code">Nuovo link</button>
              </div>
              <div class="card-actions"><button class="danger-outline" data-action="delete-group">Elimina gruppo</button></div>`
-          : `<div class="card-actions"><button class="danger-outline" data-action="leave">Esci dal gruppo</button></div>`
+          : `<div class="card-actions"><button class="secondary" data-action="rename">Rinomina</button></div>
+             <div class="card-actions"><button class="danger-outline" data-action="leave">Esci dal gruppo</button></div>`
       }
     </div>`;
 }
@@ -2126,7 +2128,7 @@ const actions = {
     const group = currentGroup();
     const name = (await modal({ title: "Rinomina il gruppo", input: { value: group.name, maxlength: 40 }, ok: "Salva" }))?.trim();
     if (!name || name === group.name) return;
-    const { error } = await sb.from("groups").update({ name: name.slice(0, 40) }).eq("id", group.id);
+    const { error } = await sb.rpc("rename_group", { p_group: group.id, p_name: name.slice(0, 40) });
     if (error) return toast(errorText(error), 3000);
     route();
   },
