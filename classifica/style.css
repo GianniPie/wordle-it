@@ -295,6 +295,20 @@ th {
 }
 th:nth-child(2), td:nth-child(2) { text-align: left; }
 td.pos { width: 28px; text-align: center; font-weight: 700; }
+/* Shared position (=1, =2...) and not enough data yet (hourglass) */
+.pos-tie {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--color-tone-4);
+  color: var(--color-tone-1);
+  font-size: 12px;
+  line-height: 16px;
+}
+.pos-wait { display: inline-flex; color: var(--color-tone-3); vertical-align: middle; }
+.standings-wait { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; }
+.standings-wait svg { flex-shrink: 0; }
 td.name { font-weight: 700; overflow-wrap: anywhere; }
 td.pts { font-weight: 700; font-size: 18px; }
 tr.me td { background: var(--soft); }

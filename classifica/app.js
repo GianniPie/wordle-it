@@ -1718,9 +1718,20 @@ function enableModuleDrag() {
 
 function standingsModule(stats) {
   const me = state.session.user.id;
-  const medal = (s) => (!stats.anyPlayed ? "" : s.rank <= 3 ? medalIcon(s.rank, 22) : s.rank);
+  // Positions only from the second finished day of the period: before, the points say too little.
+  const waiting = !stats.anyPlayed || stats.countedUntil - stats.first + 1 < 2;
+  const shared = (s) => stats.standings.filter((o) => o.rank === s.rank).length > 1;
+  const medal = (s) =>
+    waiting
+      ? `<span class="pos-wait" title="Dati non ancora sufficienti" aria-label="Dati non ancora sufficienti">${HOURGLASS}</span>`
+      : shared(s)
+        ? `<span class="pos-tie" title="Pari merito" aria-label="Pari merito al ${s.rank}° posto">=${s.rank}</span>`
+        : s.rank <= 3
+          ? medalIcon(s.rank, 22)
+          : s.rank;
   const dash = (v) => (v == null ? "-" : v);
-  const body = `<div class="scroll-x"><table class="standings">
+  const body = `${waiting ? `<p class="muted small standings-wait">${HOURGLASS} Classifica in attesa: le posizioni si assegnano quando sono conclusi almeno 2 giorni.</p>` : ""}
+    <div class="scroll-x"><table class="standings">
       <thead><tr>
         <th></th><th>Giocatore</th><th>Punti</th><th>Distanza</th><th>Media</th><th>Punti +<br>dev. std</th>
         <th>Giocate</th><th>Migliore</th><th>Peggiore</th><th>Miglior<br>risultato</th><th>Peggiore<br>risultato</th>
@@ -1767,6 +1778,8 @@ function medalIcon(place, size = 26) {
     <text x="16" y="25" text-anchor="middle" font-size="10" font-weight="800" font-family="system-ui,sans-serif" fill="${text}">${place}</text>
   </svg>`;
 }
+const HOURGLASS = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M6 2h12v2h-1v3.2c0 1.3-.6 2.6-1.6 3.4L13.6 12l1.8 1.4c1 .8 1.6 2.1 1.6 3.4V20h1v2H6v-2h1v-3.2c0-1.3.6-2.6 1.6-3.4L10.4 12 8.6 10.6C7.6 9.8 7 8.5 7 7.2V4H6V2zm3 2v3.2c0 .7.3 1.3.8 1.8L12 10.7 14.2 9c.5-.5.8-1.1.8-1.8V4H9zm3 9.3-2.2 1.7c-.5.5-.8 1.1-.8 1.8V20h6v-3.2c0-.7-.3-1.3-.8-1.8L12 13.3z"/></svg>`;
+
 function broomIcon(size = 26) {
   return `<svg class="medal-icon" viewBox="0 0 32 32" width="${size}" height="${size}" role="img" aria-label="Ultimo posto">
     <path d="M27.5 2.5 16.5 15" stroke="#8a5a2b" stroke-width="2.6" stroke-linecap="round"/>
