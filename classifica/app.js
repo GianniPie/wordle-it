@@ -1618,6 +1618,7 @@ const MODULES = {
   chart: "Grafico",
   today: "Oggi",
   distribution: "Distribuzione dei tentativi",
+  medals: "Medagliere",
 };
 
 // The period last chosen: "all", the current month (also after the month changes), or a past month.
@@ -1660,6 +1661,7 @@ function renderGroup() {
     // In a past month there is no "today": the module stays, with a short note.
     today: () => (showToday ? todayModule(data, stats) : { body: `<p class="muted small">Le partite di oggi si vedono con il mese in corso o con la classifica globale.</p>` }),
     distribution: () => distributionModule(stats),
+    medals: () => medalsModule(group, data),
   };
   const modules = moduleOrder()
     .map((id) => {
@@ -1745,6 +1747,41 @@ function standingsModule(stats) {
       <p>La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito. La partita di oggi entra in classifica quando l'hanno giocata tutti, o comunque a mezzanotte (ora italiana).</p>
       <p><strong>Migliore</strong> e <strong>Peggiore</strong> contano i giorni in cui il giocatore ha fatto, da solo, il risultato migliore o peggiore del gruppo (i pari merito non contano).</p>
     </details>`;
+  return { body };
+}
+
+// How many finished months (the current one excluded) each player ended 1st, 2nd, 3rd or last (🧹), with the
+// monthly standings of the group. A month counts only for the players who played in it.
+function medalsModule(group, data) {
+  const me = state.session.user.id;
+  const from = monthOfDate(new Date(group.created_at));
+  const until = monthOfDate(new Date()) - 1;
+  const tally = new Map(data.members.map((m) => [m.id, { ...m, medals: [0, 0, 0, 0] }]));
+  let months = 0;
+  for (let month = from; month <= until; month++) {
+    const { first, last } = monthRange(month);
+    const players = data.members.filter((m) => data.results.some((r) => r.user_id === m.id && r.day >= first && r.day <= last));
+    if (players.length < 2) continue;
+    months += 1;
+    const { standings } = periodStats({ ...data, members: players }, first, last);
+    const lastRank = Math.max(...standings.map((s) => s.rank));
+    for (const s of standings) {
+      const t = tally.get(s.id).medals;
+      if (s.rank <= 3) t[s.rank - 1] += 1;
+      if (s.rank === lastRank) t[3] += 1;
+    }
+  }
+  if (!months) return { body: `<p class="muted small">Il medagliere comincia alla fine del primo mese del gruppo.</p>` };
+  const rows = [...tally.values()].sort(
+    (a, b) => b.medals[0] - a.medals[0] || b.medals[1] - a.medals[1] || b.medals[2] - a.medals[2] || a.medals[3] - b.medals[3] || a.name.localeCompare(b.name)
+  );
+  const body = `<div class="scroll-x"><table class="medals">
+      <thead><tr><th></th><th title="Primo posto">🥇</th><th title="Secondo posto">🥈</th><th title="Terzo posto">🥉</th><th title="Ultimo posto">🧹</th></tr></thead>
+      <tbody>${rows
+        .map((r) => `<tr class="${r.id === me ? "me" : ""}"><td class="name">${esc(r.name)}</td>${r.medals.map((n) => `<td>${n}</td>`).join("")}</tr>`)
+        .join("")}</tbody>
+    </table></div>
+    <p class="muted small">Piazzamenti nella classifica di fine mese, su ${months} ${months === 1 ? "mese concluso" : "mesi conclusi"} (da ${monthLabel(from)} a ${monthLabel(until)}; il mese in corso non conta). La scopa 🧹 è per l'ultimo posto.</p>`;
   return { body };
 }
 
