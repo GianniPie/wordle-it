@@ -1,6 +1,6 @@
 // Keeps a copy of the app on the device so it opens and can be played without network.
 // Pages and app files: the copy first (the app opens at once even with a weak network), updated in the
-// background, so a new version arrives at the opening after it is published.
+// background; when a new version has arrived the pages offer "Aggiorna" (update-banner.js).
 // Libraries from the CDNs: the copy first (their addresses don't change), downloaded once.
 // Supabase data is never handled here: the pages keep their own last data.
 const CACHE = "parle-v7";
@@ -23,6 +23,7 @@ const APP_FILES = [
   "classifica/db.js",
   "classifica/sync.js",
   "classifica/vendor/supabase.js",
+  "update-banner.js",
 ];
 const LIBRARIES = [
   "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js",
@@ -33,7 +34,9 @@ const CDN_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE).then(async (cache) => {
-      await cache.addAll(APP_FILES);
+      // Only the files missing: the copies already kept are replaced by the downloads in the background, which
+      // tell the open pages that a new version is ready (see fetch).
+      await Promise.all(APP_FILES.map(async (file) => (await cache.match(file)) || cache.add(file)));
       // Libraries are useful but not essential to install: a failure here doesn't block the app.
       await Promise.allSettled(LIBRARIES.map((url) => cache.add(url)));
     })
@@ -76,10 +79,19 @@ self.addEventListener("fetch", (event) => {
   // copy of classifica/. Without a copy yet: the network.
   // A page is kept once, without its ?…, so every address of it opens the latest copy.
   const key = request.mode === "navigate" ? url.origin + url.pathname : request;
+  // A download different from the copy: the open pages show "Nuova versione disponibile" (update-banner.js).
   const update = fetch(request).then((res) => {
     if (res.ok && !res.redirected) {
       const copy = res.clone();
-      event.waitUntil(caches.open(CACHE).then((c) => c.put(key, copy)));
+      const fresh = res.clone();
+      event.waitUntil(
+        caches.open(CACHE).then(async (c) => {
+          const old = await c.match(key);
+          await c.put(key, copy);
+          if (!old || (await old.text()) === (await fresh.text())) return;
+          for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "parle-update" });
+        })
+      );
     }
     return res;
   });
