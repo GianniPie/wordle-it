@@ -20,6 +20,7 @@ const state = {
   distOpen: readJSON("parle-dist-open", null) && new Set(readJSON("parle-dist-open", [])), // Distribuzione: players shown open (null: only me)
   resultsCols: readJSON("parle-results-cols", { day: true, word: true, wholeMonth: true }), // Risultati options
   folded: new Set(readJSON("parle-folded", [])), // modules shown closed
+  explained: new Set(), // explanations opened (data-explain), kept while the page is open
   data: {}, // per group: { members, results }
   pendingJoin: null,
   pendingFrom: null, // id of the member who shared the invite link
@@ -1754,7 +1755,7 @@ function standingsModule(stats) {
         )
         .join("")}</tbody>
     </table></div>
-    <details class="explain muted small"${state.explainOpen ? " open" : ""}><summary>Come funziona la classifica</summary>
+    <details class="explain muted small" data-explain="standings"${state.explained.has("standings") ? " open" : ""}><summary>Come funziona la classifica</summary>
       <p>La classifica è calcolata sul valore <strong>punti + deviazione standard</strong> (più basso è meglio), così a parità di punti passa avanti chi è stato più costante e non ci sono pari merito. La partita di oggi entra in classifica quando l'hanno giocata tutti, o comunque a mezzanotte (ora italiana).</p>
       <p><strong>Migliore</strong> e <strong>Peggiore</strong> contano i giorni in cui il giocatore ha fatto, da solo, il risultato migliore o peggiore del gruppo (i pari merito non contano).</p>
     </details>`;
@@ -1820,7 +1821,9 @@ function medalsModule(group, data) {
         .map((r) => `<tr class="${r.id === me ? "me" : ""}"><td class="name">${esc(r.name)}</td>${r.medals.map((n) => `<td>${n}</td>`).join("")}</tr>`)
         .join("")}</tbody>
     </table></div>
-    <p class="muted small">Piazzamenti nella classifica di fine mese, su ${months} ${months === 1 ? "mese concluso" : "mesi conclusi"} (da ${monthLabel(from)} a ${monthLabel(until)}; il mese in corso non conta). La scopa è per l'ultimo posto.</p>`;
+    <details class="explain muted small" data-explain="medals"${state.explained.has("medals") ? " open" : ""}><summary>Come funziona il medagliere</summary>
+      <p>Piazzamenti nella classifica di fine mese, su ${months} ${months === 1 ? "mese concluso" : "mesi conclusi"} (da ${monthLabel(from)} a ${monthLabel(until)}; il mese in corso non conta). La scopa è per l'ultimo posto.</p>
+    </details>`;
   return { body };
 }
 
@@ -2247,6 +2250,10 @@ $app.addEventListener("submit", (e) => {
 });
 
 // The explanation under the standings stays open (or closed) when the page is redrawn.
-document.addEventListener("toggle", (e) => e.target.matches?.("details.explain") && (state.explainOpen = e.target.open), true);
+document.addEventListener(
+  "toggle",
+  (e) => e.target.matches?.("details.explain") && state.explained[e.target.open ? "add" : "delete"](e.target.dataset.explain),
+  true
+);
 
 init();
