@@ -197,6 +197,51 @@ function navigate(url, replace = false) {
   route();
 }
 
+// Swipe left or right to go to the next or previous page of the same kind, in the menu's order:
+// "Le mie statistiche" and the groups' leaderboards, or the groups' chats.
+function swipePages() {
+  const view = currentView();
+  const groups = state.session ? (state.groups.length ? state.groups : readJSON("parle-groups", [])) : [];
+  const id = view.groupId || state.groupId;
+  if (view.name === "chat") return { pages: groups.map((g) => `?chat=${encodeURIComponent(g.id)}`), at: groups.findIndex((g) => g.id === id) };
+  const pages = ["?statistiche", ...groups.map((g) => `?gruppo=${encodeURIComponent(g.id)}`)];
+  if (view.name === "stats") return { pages, at: 0 };
+  if (view.name === "groups" && id) return { pages, at: 1 + groups.findIndex((g) => g.id === id) };
+  return null;
+}
+
+// Not a page swipe: a touch near the screen's edges (the phone's back gesture), on a field, the chart, a
+// module handle, a dialog or the menu, or on something that scrolls sideways (the tables).
+function swipeAllowed(e) {
+  const t = e.touches[0];
+  if (e.touches.length !== 1 || t.clientX < 24 || t.clientX > innerWidth - 24 || !$menu.hidden) return false;
+  if (e.target.closest("input, textarea, select, canvas, .handle, .modal-backdrop, dialog, #menu")) return false;
+  for (let el = e.target; el && el !== document.body; el = el.parentElement) {
+    const x = getComputedStyle(el).overflowX;
+    if ((x === "auto" || x === "scroll") && el.scrollWidth > el.clientWidth + 1) return false;
+  }
+  return true;
+}
+
+let swipeStart = null;
+document.addEventListener("touchstart", (e) => {
+  swipeStart = swipeAllowed(e) ? { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now() } : null;
+}, { passive: true });
+document.addEventListener("touchend", (e) => {
+  const s = swipeStart;
+  swipeStart = null;
+  if (!s) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - s.x, dy = t.clientY - s.y;
+  if (Date.now() - s.at > 700 || Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+  const where = swipePages();
+  if (!where || where.at < 0) return;
+  const next = where.at + (dx < 0 ? 1 : -1);
+  if (next < 0 || next >= where.pages.length) return;
+  state.slide = dx < 0 ? "from-right" : "from-left";
+  navigate(where.pages[next]);
+}, { passive: true });
+
 // ---------- chat: every game of the group, as it is shared, with push notifications ----------
 
 // Public key of the server that sends the notifications (VAPID); the private one is a server secret.
@@ -1495,6 +1540,13 @@ function renderShell(body) {
     state.chart = null;
   }
   $app.innerHTML = offlineBanner() + body;
+  // After a swipe the new page slides in from the side it came from.
+  if (state.slide) {
+    $app.classList.remove("slide-from-left", "slide-from-right");
+    void $app.offsetWidth;
+    $app.classList.add(`slide-${state.slide}`);
+    state.slide = null;
+  }
 }
 
 function renderNoGroups() {

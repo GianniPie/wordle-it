@@ -1079,3 +1079,10 @@ main:has(> .chat-page) { padding-bottom: 0; }
   background: var(--color-correct);
   border-radius: 10px;
 }
+
+/* A page reached with a swipe slides in from that side */
+.slide-from-right { animation: slide-from-right 220ms ease-out; }
+.slide-from-left { animation: slide-from-left 220ms ease-out; }
+@keyframes slide-from-right { from { transform: translateX(40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+@keyframes slide-from-left { from { transform: translateX(-40px); opacity: 0.3; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .slide-from-right, .slide-from-left { animation: none; } }
