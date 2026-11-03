@@ -1969,6 +1969,9 @@ function drawChart(stats) {
   });
   const gap = (state.chartMode || "total") === "gap";
   const leader = days.map((_, i) => Math.min(...totals.map((t) => t[i])));
+  // Players hidden by tapping their name in the legend, remembered on this device for each group.
+  const hiddenByGroup = readJSON("parle-chart-hidden", {});
+  const hidden = new Set(hiddenByGroup[state.groupId] || []);
   const datasets = players.map((s, p) => {
     const color = LINE_COLORS[data.members.findIndex((m) => m.id === s.id) % LINE_COLORS.length];
     return {
@@ -1980,6 +1983,8 @@ function drawChart(stats) {
       pointRadius: 0,
       pointHoverRadius: 4,
       tension: gap ? 0 : 0.25,
+      hidden: hidden.has(s.id),
+      playerId: s.id,
     };
   });
   if (state.chart) state.chart.destroy();
@@ -1990,7 +1995,16 @@ function drawChart(stats) {
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { position: "bottom", labels: { color: textColor, boxWidth: 12, boxHeight: 12 } },
+        legend: {
+          position: "bottom",
+          labels: { color: textColor, boxWidth: 12, boxHeight: 12 },
+          onClick: (e, item, legend) => {
+            window.Chart.defaults.plugins.legend.onClick.call(legend, e, item, legend);
+            const chart = legend.chart;
+            hiddenByGroup[state.groupId] = chart.data.datasets.filter((d, i) => !chart.isDatasetVisible(i)).map((d) => d.playerId);
+            store("parle-chart-hidden", JSON.stringify(hiddenByGroup));
+          },
+        },
         tooltip: {
           itemSort: (a, b) => a.parsed.y - b.parsed.y,
           callbacks: {
