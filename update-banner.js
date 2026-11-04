@@ -24,4 +24,23 @@
     };
     document.body.appendChild(bar);
   });
+
+  // The page's own files are asked again through the service worker, which checks them on the server in the
+  // background: a reload in the same tab can reuse the files already in memory without asking, and an app
+  // brought back from the background is not reloaded at all.
+  function check() {
+    if (!navigator.serviceWorker.controller || document.visibilityState !== "visible") return;
+    var files = [location.pathname];
+    performance.getEntriesByType("resource").forEach(function (entry) {
+      var url = new URL(entry.name);
+      if (url.origin === location.origin && /\.(js|css)$/.test(url.pathname) && files.indexOf(url.pathname) < 0) files.push(url.pathname);
+    });
+    files.forEach(function (file) {
+      fetch(file).catch(function () {});
+    });
+  }
+  window.addEventListener("load", function () {
+    setTimeout(check, 1000);
+  });
+  document.addEventListener("visibilitychange", check);
 })();

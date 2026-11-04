@@ -1748,7 +1748,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
       }(c(HTMLElement));
   customElements.define("game-icon", js);
   var Ss = document.createElement("template");
-  Ss.innerHTML = '\n  <div id="timer"></div>\n';
+  Ss.innerHTML = '\n  <style>\n  #local {\n    font-size: 13px;\n    line-height: 1.3;\n    margin-top: 4px;\n    color: var(--color-tone-2);\n  }\n  </style>\n  <div id="timer"></div>\n  <div id="local"></div>\n';
   var _s = 6e4,
       qs = 36e5,
       Es = function(e) {
@@ -1787,7 +1787,13 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               key: "connectedCallback",
               value: function() {
                   var e = this;
-                  this.shadowRoot.appendChild(Ss.content.cloneNode(!0)), this.$timer = this.shadowRoot.querySelector("#timer"), this.intervalId = setInterval((function() {
+                  this.shadowRoot.appendChild(Ss.content.cloneNode(!0)), this.$timer = this.shadowRoot.querySelector("#timer");
+                  // When the next word arrives on this phone's clock (Italian midnight).
+                  var hm = new Date(this.targetEpochMS).toLocaleTimeString("it", {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                  });
+                  this.shadowRoot.querySelector("#local").textContent = "00:00" === hm ? "Nuova parola a mezzanotte" : "Nuova parola alle ".concat(hm, " ora locale (mezzanotte in Italia)"), this.intervalId = setInterval((function() {
                       e.updateTimer()
                   }), 200)
               }
