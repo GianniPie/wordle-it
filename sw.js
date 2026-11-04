@@ -80,7 +80,8 @@ self.addEventListener("fetch", (event) => {
   // A page is kept once, without its ?…, so every address of it opens the latest copy.
   const key = request.mode === "navigate" ? url.origin + url.pathname : request;
   // A download different from the copy: the open pages show "Nuova versione disponibile" (update-banner.js).
-  const update = fetch(request).then((res) => {
+  // Always asked to the server (not to the browser's own cache), so a new version is noticed at once.
+  const update = fetch(request, { cache: "no-cache" }).then((res) => {
     if (res.ok && !res.redirected) {
       const copy = res.clone();
       const fresh = res.clone();

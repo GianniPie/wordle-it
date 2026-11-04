@@ -9,6 +9,12 @@ const AVATAR_KEY = "parle-avatar"; // the player's picture address (none: first 
 // Shown in the avatar until the name is known.
 const PERSON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#fff" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
 
+// Puzzle number of a moment: the word changes at Italian midnight in every time zone, like the game.
+function puzzleDay(date = new Date()) {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(date).split("-").map(Number);
+  return Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(2022, 0, 3)) / 864e5);
+}
+
 function read(key) {
   try {
     return localStorage.getItem(key);
@@ -164,8 +170,7 @@ function rememberTime() {
     state = JSON.parse(read("gameState") || "null");
   } catch {}
   if (!state || !["WIN", "FAIL"].includes(state.gameStatus) || !(state.playMs > 0) || !state.lastPlayedTs) return;
-  const d = new Date(state.lastPlayedTs);
-  const day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
+  const day = puzzleDay(new Date(state.lastPlayedTs));
   try {
     const times = JSON.parse(read("parle-times") || "{}");
     if (times[day]) return;
@@ -185,10 +190,6 @@ const DEFINITION_VERSION = 4;
 // words are not readable at a glance in the browser's storage: { v, days: { day: definition } }.
 const keepEncoded = (value) => btoa(unescape(encodeURIComponent(JSON.stringify(value))));
 const readEncoded = (text) => JSON.parse(decodeURIComponent(escape(atob(text))));
-const localDay = () => {
-  const d = new Date();
-  return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
-};
 
 function keptDefinitions() {
   try {
@@ -204,7 +205,7 @@ function keptDefinitions() {
 let ahead = null;
 function fetchAhead() {
   if (ahead) return ahead;
-  const from = localDay();
+  const from = puzzleDay();
   ahead = fetch(`${SUPABASE_URL}/rest/v1/rpc/definitions_ahead`, {
     method: "POST",
     headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
@@ -308,8 +309,7 @@ window.addEventListener("parle-result-queued", () => {
   try {
     uid = JSON.parse(read(SESSION_KEY) || "null")?.user?.id || null;
   } catch {}
-  const now = new Date();
-  const day = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2022, 0, 3)) / 864e5);
+  const day = puzzleDay();
   import("./db.js").then((db) => db.setGameOwner(day, uid));
 });
 window.addEventListener("parle-result-queued", sync);
@@ -331,8 +331,7 @@ window.addEventListener("game-last-tile-revealed-in-row", () => setTimeout(sync,
 // on a new day the page is reloaded, so the player gets today's word and not yesterday's again.
 function reloadOnNewDay() {
   const game = document.querySelector("game-app");
-  const now = new Date();
-  const today = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2022, 0, 3)) / 864e5); // like the game
+  const today = puzzleDay(); // like the game
   if (document.visibilityState === "visible" && game?.dayOffset != null && today !== game.dayOffset) location.reload();
 }
 document.addEventListener("visibilitychange", reloadOnNewDay);

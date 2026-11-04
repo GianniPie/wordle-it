@@ -1,4 +1,4 @@
-import { sb, dayNumber, italianDayNumber, dayDate, points, MISSED_DAY_POINTS, syncToday, flushPending } from "./db.js";
+import { sb, dayNumber, italianDayNumber, calendarDayNumber, italianMonth, dayDate, points, MISSED_DAY_POINTS, syncToday, flushPending } from "./db.js";
 
 const $app = document.getElementById("app");
 const $menu = document.getElementById("menu");
@@ -139,13 +139,14 @@ function monthOfDay(day) {
   return d.getUTCFullYear() * 12 + d.getUTCMonth();
 }
 
+// Months follow the Italian calendar, like the days.
 function monthOfDate(date) {
-  return date.getFullYear() * 12 + date.getMonth();
+  return italianMonth(date);
 }
 
 function monthRange(month) {
   const y = Math.floor(month / 12), m = month % 12;
-  return { first: dayNumber(new Date(y, m, 1)), last: dayNumber(new Date(y, m + 1, 0)) };
+  return { first: calendarDayNumber(y, m, 1), last: calendarDayNumber(y, m + 1, 0) };
 }
 
 function monthLabel(month, withYear = true) {

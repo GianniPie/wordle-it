@@ -995,13 +995,23 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               }
       })), s
   }
-  var Ra = new Date(2022, 0, 3, 0, 0, 0, 0);
+  // The first puzzle's day, 3 January 2022 (midday in Italy, so it is that day by the Italian calendar).
+  var Ra = new Date(Date.UTC(2022, 0, 3, 11, 0, 0, 0));
 
+  // Days between two moments by the Italian calendar: the word changes at Italian midnight in every time zone.
   function $a(e, a) {
-      var s = new Date(e),
-          t = new Date(a),
-          o = Date.UTC(s.getFullYear(), s.getMonth(), s.getDate()),
-          r = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+      var f = new Intl.DateTimeFormat("en-CA", {
+              timeZone: "Europe/Rome",
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit"
+          }),
+          u = function(d) {
+              var p = f.format(new Date(d)).split("-");
+              return Date.UTC(+p[0], p[1] - 1, +p[2])
+          },
+          o = u(e),
+          r = u(a);
       return Math.floor((r - o) / 864e5)
   }
 
@@ -1750,8 +1760,12 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
               s(this, t), r(p(e = a.call(this)), "targetEpochMS", void 0), r(p(e), "intervalId", void 0), r(p(e), "$timer", void 0), e.attachShadow({
                   mode: "open"
               });
-              var o = new Date;
-              return o.setDate(o.getDate() + 1), o.setHours(0, 0, 0, 0), e.targetEpochMS = o.getTime(), e
+              // The next word arrives at the next Italian midnight (found to the millisecond within the next 26 hours).
+              for (var n = Date.now(), lo = n, hi = n + 936e5; hi - lo > 1;) {
+                  var mid = Math.floor((lo + hi) / 2);
+                  $a(n, mid) >= 1 ? hi = mid : lo = mid
+              }
+              return e.targetEpochMS = hi, e
           }
           return o(t, [{
               key: "padDigit",

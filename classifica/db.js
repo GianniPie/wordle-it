@@ -8,16 +8,27 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const FIRST_PUZZLE = Date.UTC(2022, 0, 3);
 
-// Puzzle number of a date, counted on the local calendar day like the game does.
-export function dayNumber(date) {
-  return Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - FIRST_PUZZLE) / 864e5);
-}
-
-// Puzzle number of the day in progress in Italy: the group's days close at Italian midnight, the same
-// moment for every player whatever their time zone.
+// Puzzle number of the day in progress in Italy at a moment: the word changes at Italian midnight for every
+// player, whatever their time zone (like the game).
 export function italianDayNumber(date = new Date()) {
   const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(date).split("-").map(Number);
   return Math.floor((Date.UTC(y, m - 1, d) - FIRST_PUZZLE) / 864e5);
+}
+
+// Puzzle number of a moment (the same Italian day as the game).
+export function dayNumber(date) {
+  return italianDayNumber(date);
+}
+
+// Puzzle number of a calendar date (month 0-11), e.g. the first day of a month.
+export function calendarDayNumber(year, month, day) {
+  return Math.floor((Date.UTC(year, month, day) - FIRST_PUZZLE) / 864e5);
+}
+
+// Italian calendar month of a moment, as year * 12 + month (0-11).
+export function italianMonth(date = new Date()) {
+  const [y, m] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(date).split("-").map(Number);
+  return y * 12 + m - 1;
 }
 
 // Calendar date (UTC midnight) of a puzzle number.
