@@ -1329,7 +1329,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       var s = a.detail.index;
                       if ("ghost" === e.hintMode() && e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && !(e.boardState[e.rowIndex][s] || "").trim()) {
                           var k = e.knownLetters()[s];
-                          if (k) return e.selectTile(s), void e.addLetter(k)
+                          if (k) return e.selectTile(s), e.addLetter(k), void e.selectTile(s) // the selection stays on the tapped tile
                       }
                       e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && e.selectTile(e.selectedTile !== s ? s : null)
                   })), this.$game.addEventListener("game-last-tile-revealed-in-row", (function(a) {
