@@ -1793,7 +1793,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       hour: "2-digit",
                       minute: "2-digit"
                   });
-                  this.shadowRoot.querySelector("#local").textContent = "Nuova parola alle ".concat(hm, " nella tua zona"), this.intervalId = setInterval((function() {
+                  this.shadowRoot.querySelector("#local").textContent = "alle ".concat(hm, " nella tua zona"), this.intervalId = setInterval((function() {
                       e.updateTimer()
                   }), 200)
               }
