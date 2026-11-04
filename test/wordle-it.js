@@ -1793,7 +1793,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       hour: "2-digit",
                       minute: "2-digit"
                   });
-                  this.shadowRoot.querySelector("#local").textContent = "00:00" === hm ? "Nuova parola a mezzanotte" : "Nuova parola alle ".concat(hm, " ora locale (mezzanotte in Italia)"), this.intervalId = setInterval((function() {
+                  this.shadowRoot.querySelector("#local").textContent = "Nuova parola alle ".concat(hm, " nella tua zona"), this.intervalId = setInterval((function() {
                       e.updateTimer()
                   }), 200)
               }
