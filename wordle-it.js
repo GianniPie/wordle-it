@@ -1748,7 +1748,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
       }(c(HTMLElement));
   customElements.define("game-icon", js);
   var Ss = document.createElement("template");
-  Ss.innerHTML = '\n  <style>\n  #local {\n    font-size: 13px;\n    line-height: 1.3;\n    margin-top: 4px;\n    color: var(--color-tone-2);\n  }\n  </style>\n  <div id="timer"></div>\n  <div id="local"></div>\n';
+  Ss.innerHTML = '\n  <style>\n  #local {\n    font-size: 13px;\n    letter-spacing: normal;\n    line-height: 1.3;\n    margin-top: 4px;\n    color: var(--color-tone-2);\n  }\n  </style>\n  <div id="timer"></div>\n  <div id="local"></div>\n';
   var _s = 6e4,
       qs = 36e5,
       Es = function(e) {
