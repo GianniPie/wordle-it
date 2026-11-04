@@ -1327,7 +1327,7 @@ this.wordle = this.wordle || {}, this.wordle.bundle = function(e) {
                       "←" === s || "Backspace" === s ? e.removeLetter() : "↵" === s || "Enter" === s ? e.submitGuess() : Ga.includes(s.toLowerCase()) && e.addLetter(s.toLowerCase())
                   })), this.$game.addEventListener("game-tile-tap", (function(a) {
                       var s = a.detail.index;
-                      if ("ghost" === e.hintMode() && e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && !(e.boardState[e.rowIndex][s] || "").trim() && null == e.selectedTile) {
+                      if ("ghost" === e.hintMode() && e.gameStatus === Qa && e.canInput && a.target === e.$board.querySelectorAll("game-row")[e.rowIndex] && !(e.boardState[e.rowIndex][s] || "").trim()) {
                           var k = e.knownLetters()[s];
                           if (k) return e.selectTile(s), void e.addLetter(k)
                       }
